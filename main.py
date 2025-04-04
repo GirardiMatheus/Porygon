@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # from nokia_ssh import *
 
 # def main():
@@ -7,3 +8,9 @@
 
 # if __name__ == "__main__":
 #     main()
+=======
+from nokia import *
+
+#login_olt_tl1()
+login_olt_ssh()
+>>>>>>> upstream/dev
