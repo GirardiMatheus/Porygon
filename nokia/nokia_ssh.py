@@ -84,7 +84,6 @@ def login_olt_ssh():
         log_interaction("Alarmes desativados.")
         return child
     
-
     except pexpect.EOF:
         log_interaction("Erro SSH", "Conexão fechada inesperadamente", "error")
         print("❌ Erro: Conexão foi fechada antes do login.")
