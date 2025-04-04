@@ -2,6 +2,9 @@ import pexpect
 import os
 from dotenv import load_dotenv
 import logging
+# from collections import defaultdict
+import time
+
 
 def setup_logging():
     """Configura o sistema de logging com rotação de arquivos"""
@@ -47,7 +50,7 @@ def login_olt_ssh():
             error_msg = "Variáveis de ambiente não configuradas corretamente"
             log_interaction("Erro de configuração", error_msg, "error")
             raise ValueError(error_msg)
-        
+       
         log_interaction("Conectando à OLT", f"Usuário: {ssh_user} | OLT: {olt_ip}")
         # print(f"Usuário: {ssh_user}, IP: {olt_ip}, Porta: {port}")
         # Conexão SSH
@@ -69,6 +72,7 @@ def login_olt_ssh():
         if login_success == 0:
             log_interaction("Conexão estabelecida", f"Conectado à OLT {olt_ip}")
             print(f"✅ Conectado com sucesso à OLT {olt_ip}")
+
         else:
             log_interaction("Erro SSH", "Não foi possível autenticar na OLT", "error")
             print("❌ Falha na autenticação")
@@ -78,7 +82,9 @@ def login_olt_ssh():
         child.sendline("exit")
         child.expect("#")
         log_interaction("Alarmes desativados.")
-       
+        return child
+    
+
     except pexpect.EOF:
         log_interaction("Erro SSH", "Conexão fechada inesperadamente", "error")
         print("❌ Erro: Conexão foi fechada antes do login.")
@@ -94,6 +100,8 @@ def login_olt_ssh():
         log_interaction("Erro geral", error_msg, "error")
         print(error_msg)
         return None
+
+
 def login_olt_tl1(): 
     """Estabelece conexão TL1 com a OLT"""
     try:
@@ -160,6 +168,9 @@ def login_olt_tl1():
 
             if "<" in child.before:
                 success_msg = f"✅ Conexão TL1 estabelecida com sucesso para {olt_ip}"
+                child.expect('<')
+                child.sendline('INH-MSG-ALL::ALL:::;')
+                child.expect("COMPLD")
                 log_interaction("Conexão TL1 bem-sucedida", success_msg)
                 print(success_msg)
                 return child
@@ -179,3 +190,21 @@ def login_olt_tl1():
         log_interaction("Erro geral TL1", error_msg, "error")
         print(error_msg)
         return None
+    
+def list_unauthorized(child):
+            child.sendline('show pon unprovision-onu')
+            time.sleep(3)
+            child.sendline('logout')
+            child.terminate()
+            parse = str(child.readlines()[7::])
+            parse_split = parse.split(",")
+            
+            for count,line in enumerate(parse_split):
+                if "1/1/" in line:
+                    pos_slot = line.find('1/1/')
+                    dados_temp = line[pos_slot:].split(" ")
+                    dados = list(filter(None,dados_temp))
+                    print(f"Slot: {dados[0].split('/')[2]} Pon: {dados[0].split('/')[3]} Serial: {dados[1]}")
+                    continue
+                continue  
+
