@@ -2,6 +2,8 @@ import pexpect
 import os
 from dotenv import load_dotenv
 import logging
+# from collections import defaultdict
+import time
 
 def setup_logging():
     """Configura o sistema de logging com rotação de arquivos"""
@@ -14,6 +16,7 @@ def setup_logging():
     logging.info("="*50)
     logging.info("Iniciando nova sessão de conexão OLT")
     logging.info("="*50)
+
 
 def log_interaction(action, details="", level="info"):
     """Função padronizada para registro de logs"""
@@ -31,69 +34,6 @@ def log_interaction(action, details="", level="info"):
 load_dotenv()
 setup_logging()
 
-def login_olt_ssh():
-    """Estabelece conexão SSH com a OLT"""
-    try:
-        log_interaction("Iniciando conexão SSH", "Obtendo variáveis de ambiente")
-        
-        # Obtém variáveis de ambiente
-        ssh_user = os.getenv('SSH_USER')
-        olt_ip = os.getenv('LAB_IP')
-        ssh_password = os.getenv('SSH_PASSWORD')
-        port = os.getenv('PORT')
-        
-        # Validação das variáveis
-        if not all([ssh_user, olt_ip, ssh_password]):
-            error_msg = "Variáveis de ambiente não configuradas corretamente"
-            log_interaction("Erro de configuração", error_msg, "error")
-            raise ValueError(error_msg)
-        
-        log_interaction("Conectando à OLT", f"Usuário: {ssh_user} | OLT: {olt_ip}")
-        # print(f"Usuário: {ssh_user}, IP: {olt_ip}, Porta: {port}")
-        # Conexão SSH
-        child = pexpect.spawn(f"ssh {ssh_user}@{olt_ip} -p {port}", encoding='utf-8', timeout=30)
-
-        log_interaction("SSH iniciado", "Aguardando prompt de senha", "debug")
-
-        index = child.expect(["password:", "Are you sure you want to continue connecting", pexpect.TIMEOUT], timeout=10)
-        
-        if index == 1:
-            log_interaction("SSH", "Primeira conexão - aceitando certificado", "debug")
-            child.sendline("yes")
-            child.expect("password:")
-        
-        log_interaction("SSH", "Enviando credenciais de acesso", "debug")
-        child.sendline(ssh_password)
-        login_success = child.expect([r"typ:isadmin>#", pexpect.TIMEOUT, pexpect.EOF], timeout=10)
-
-        if login_success == 0:
-            log_interaction("Conexão estabelecida", f"Conectado à OLT {olt_ip}")
-            print(f"✅ Conectado com sucesso à OLT {olt_ip}")
-        else:
-            log_interaction("Erro SSH", "Não foi possível autenticar na OLT", "error")
-            print("❌ Falha na autenticação")
-            return None
-        child.sendline("environment inhibit-alarms")
-        child.expect("#")
-        child.sendline("exit")
-        child.expect("#")
-        log_interaction("Alarmes desativados.")
-       
-    except pexpect.EOF:
-        log_interaction("Erro SSH", "Conexão fechada inesperadamente", "error")
-        print("❌ Erro: Conexão foi fechada antes do login.")
-        
-    except pexpect.exceptions.ExceptionPexpect as e:
-        error_msg = f"Falha na conexão SSH: {str(e)}"
-        log_interaction("Erro SSH", error_msg, "error")
-        print(error_msg)
-        return None
-        
-    except Exception as e:
-        error_msg = f"Erro inesperado: {str(e)}"
-        log_interaction("Erro geral", error_msg, "error")
-        print(error_msg)
-        return None
 def login_olt_tl1(): 
     """Estabelece conexão TL1 com a OLT"""
     try:
@@ -160,6 +100,9 @@ def login_olt_tl1():
 
             if "<" in child.before:
                 success_msg = f"✅ Conexão TL1 estabelecida com sucesso para {olt_ip}"
+                child.expect('<')
+                child.sendline('INH-MSG-ALL::ALL:::;')
+                child.expect("COMPLD")
                 log_interaction("Conexão TL1 bem-sucedida", success_msg)
                 print(success_msg)
                 return child
@@ -179,3 +122,4 @@ def login_olt_tl1():
         log_interaction("Erro geral TL1", error_msg, "error")
         print(error_msg)
         return None
+
