@@ -72,15 +72,11 @@ def login_ssh():
         error_msg = f"Erro inesperado: {str(e)}"
         log_interaction("Erro geral", error_msg, "error")
         print(error_msg)
-        return None
-
-import logging
 
 def list_unauthorized(child):
     try:
         # Envia o comando e captura a saída
         child.sendline('show gpon blacklist')
-#        child.expect_exact('show gpon blacklist')
         child.expect('#')  # Captura até o prompt
         output = child.before.strip()  # Remove espaços extras
 
@@ -130,7 +126,6 @@ def consult_information(child, serial):
         log_interaction(serial)
         # Pré-processamento do serial
         serial = serial.strip().lower()  # Remove espaços e converte para minúsculas
-        print(serial)
 
         # Validação básica (ex: serial deve ter 12 caracteres)
         if len(serial) != 12:  # Ajuste conforme o padrão da sua OLT
