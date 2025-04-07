@@ -74,13 +74,11 @@ def login_ssh():
         print(error_msg)
         return None
 
-import logging
 
 def list_unauthorized(child):
     try:
         # Envia o comando e captura a saída
         child.sendline('show gpon blacklist')
-#        child.expect_exact('show gpon blacklist')
         child.expect('#')  # Captura até o prompt
         output = child.before.strip()  # Remove espaços extras
 
