@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 import logging
 # from collections import defaultdict
 import time
+import re
 
 
 def setup_logging():
@@ -128,8 +129,6 @@ def return_signal_temp(child):
         log_interaction(f"Serial formatado para a OLT: {SNONUP}")
         logging.info("Buscando ONU e ONT")
 
-        login_olt_ssh()
-
         # Busca ONU
         child = pexpect.spawn(f"show equipment ont status pon | match match exact:{SNONUP}")
         child.expect("#")
@@ -172,4 +171,3 @@ def return_signal_temp(child):
         if 'child' in locals():
             child.sendline("logout")
             child.terminate()
-    continue 
