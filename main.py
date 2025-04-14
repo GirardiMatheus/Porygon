@@ -75,9 +75,9 @@ def handle_parks_menu(manager):
             exit()
             break
             
-        if choice in ('1', '2', '3', '4', '5', '6'):  # Adicionei a opção 6 aqui
+        if choice in ('1', '2', '3', '4', '5', '6'):  
             try:
-                if choice == '6':  # Caso especial que não precisa de OLT
+                if choice == '6':  
                     list_of_compatible_models()
                     continue
                     
@@ -89,7 +89,6 @@ def handle_parks_menu(manager):
                 function_name = menu_options[int(choice)][1]
                 log_interaction(f"Executando: {function_name}")
                 
-                # Chama a função dinamicamente
                 globals()[function_name](ip_olt=manager.current_olt)
                 
                 log_interaction(f"Concluído: {function_name}")
@@ -105,7 +104,6 @@ def handle_parks_menu(manager):
             time.sleep(1)
 
 def main():
-    """Função principal do sistema"""
     log_interaction("Sistema iniciado")
     manager = OLTManager()
     

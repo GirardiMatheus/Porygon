@@ -81,8 +81,6 @@ def list_unauthorized(child):
         child.sendline('show gpon blacklist')
         child.expect('#')
         output = child.before.strip()
-        child.expect('#')  
-        output = child.before.strip()  
 
         # Dicionário para armazenar os dados
         onu_dict = {}
