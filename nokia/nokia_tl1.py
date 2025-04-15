@@ -2,7 +2,6 @@ import pexpect
 import os
 from dotenv import load_dotenv
 import logging
-# from collections import defaultdict
 import time
 
 def setup_logging():
