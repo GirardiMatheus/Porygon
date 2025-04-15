@@ -15,7 +15,7 @@ logger.info("Sistema iniciado")
 load_dotenv()
 
 class OLTManager:
-    def __init__(self):
+    def _init_(self):
         self.current_olt = None
         self.vendor_type = None
 
@@ -105,19 +105,10 @@ def handle_vendor_menu(manager, vendor):
             logger.info("Sistema encerrado pelo menu")
             exit()
 
-
         if choice in ('1', '2', '3', '4', '5', '6'):
             try:
                 if choice == '6': 
                     globals()[menu_options[vendor][int(choice)][1]]()
-
-            break
-            
-        if choice in ('1', '2', '3', '4', '5', '6'):  
-            try:
-                if choice == '6':  
-                    list_of_compatible_models()
-
                     continue
 
                 if not manager.current_olt:
@@ -126,12 +117,8 @@ def handle_vendor_menu(manager, vendor):
                     time.sleep(1)
                     continue
 
-
                 function_name = menu_options[vendor][int(choice)][1]
-                logger.info(f"Executando função: {function_name}")   
-                function_name = menu_options[int(choice)][1]
-                log_interaction(f"Executando: {function_name}")
-                
+                logger.info(f"Executando função: {function_name}")
 
                 globals()[function_name](ip_olt=manager.current_olt)
 
@@ -148,11 +135,10 @@ def handle_vendor_menu(manager, vendor):
             time.sleep(1)
 
 def main():
-
     """Função principal do sistema"""
     logger.info("Sistema iniciado")
-    log_interaction("Sistema iniciado")
     manager = OLTManager()
+
     vendor_options = {
         1: "NOKIA",
         2: "PARKS"
