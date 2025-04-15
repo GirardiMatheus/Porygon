@@ -175,6 +175,7 @@ cython_debug/
 
 # Local LOG file
 OLT_LOG.log
+logs/
 
 # CSV
 csv/parks.csv
