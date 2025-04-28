@@ -2,6 +2,7 @@ from nokia.nokia_ssh import *
 from nokia.nokia_tl1 import *
 import csv
 from utils.log import get_logger
+from datetime import datetime
 
 # Logger principal
 logger = get_logger(__name__)
@@ -469,7 +470,7 @@ def provision_nokia(ip_olt):
             with open(csv_path, mode='r') as csvfile:
                 reader = csv.DictReader(csvfile)
                 for row in reader:
-                    if (row['CARD'] == slot and str(row['PON']) == str(pon)):
+                    if (row['slot'] == slot and str(row['PON']) == str(pon)):
                         vlan = row['VLAN']
                         logger.info(f"Config CSV - VLAN: {vlan}")
                         break
@@ -669,4 +670,205 @@ def provision_nokia(ip_olt):
         conexao.terminate()
         logger.info("Finalizado processo")
         print("Finalizado.")
+
+def mass_migration_nokia(ip_olt):
+    """
+    Função para migração em massa de ONUs baseada em um CSV de migração.
+    Repete enquanto houver ONUs pendentes de migração.
+    """
+    conexao = None
+    conexao_tl1 = None
+
+    try:
+        # Conexão SSH
+        logger.info(f"Conectando à OLT {ip_olt} para migração em massa")
+        conexao = login_olt_ssh(host=ip_olt)
+        logger.info("Conexão SSH estabelecida com sucesso")
+
+        # Carregar dados do CSV de migração
+        migration_data = []
+        try:
+            with open('csv/migration.csv', mode='r') as csvfile:
+                reader = csv.DictReader(csvfile)
+                for row in reader:
+                    migration_data.append(row)
+            logger.info(f"Carregados {len(migration_data)} registros do CSV de migração")
+        except Exception as e:
+            logger.error(f"Erro ao ler CSV de migração: {str(e)}")
+            print("Erro ao ler o arquivo csv/migration.csv")
+            return
         
+        # Carregar dados do nokia.csv
+        vlan_data = []
+        try:
+            with open('csv/nokia.csv', mode='r') as csvfile:
+                reader = csv.DictReader(csvfile)
+                for row in reader:
+                    vlan_data.append(row)
+            logger.info(f"Carregados {len(vlan_data)} registros do CSV nokia.csv")
+        except Exception as e:
+            logger.error(f"Erro ao ler CSV nokia.csv: {str(e)}")
+            print("Erro ao ler o arquivo csv/nokia.csv")
+            return
+        
+        # Criar dicionário para busca rápida de VLAN
+        vlan_lookup = {(row['CARD'], row['PON']): row['VLAN'] for row in vlan_data}
+
+        # Preparar arquivos de saída
+        migrated_onus = []
+        not_migrated_onus = []
+
+        # Dicionário dos seriais já migrados ou falhados
+        already_processed = {}
+
+        while True:
+            logger.info("Listando ONUs não autorizadas...")
+            unauthorized_onu = list_unauthorized(conexao)
+
+            if not unauthorized_onu:
+                logger.warning("Nenhuma ONU ou ONT pedindo autorização")
+                print("Nenhuma ONU ou ONT pedindo autorização...")
+                break
+
+            # Criar dicionário de lookup rápido
+            unauth_dict = {onu[0].upper(): (onu[1], onu[2]) for onu in unauthorized_onu}
+
+            # Filtrar migration_data removendo o que já foi processado
+            pendentes = [item for item in migration_data if item['serial'].upper().strip() not in already_processed]
+
+            if not pendentes:
+                logger.info("Nenhum serial restante para tentar migração")
+                break
+
+            logger.info(f"Iniciando novo ciclo de tentativa para {len(pendentes)} ONUs")
+
+            algum_migrado_nesse_ciclo = False
+
+            for item in pendentes:
+                serial = item.get('serial', '').upper().strip()
+                if not serial:
+                    continue
+
+                # Verificar se o serial está na lista de não autorizados
+                if serial in unauth_dict:
+                    try:
+                        slot, pon = unauth_dict[serial]
+                        name = item.get('name', 'CLIENTE').strip()
+
+                        vlan = vlan_lookup.get((slot, pon))
+                        if not vlan:
+                            raise Exception(f"VLAN não encontrada para slot {slot} e PON {pon}")
+
+                        logger.info(f"Processando ONU {serial} - Slot: {slot}, PON: {pon}, Nome: {name}, VLAN: {vlan}")
+
+                        position = checkfreeposition(conexao, slot, pon)
+                        logger.info(f"Posição livre encontrada: {position}")
+
+                        if serial.startswith(('ALCL')):
+                            logger.info("ONT Nokia ALCL detectada")
+                            serial_tl1 = format_tl1_serial(serial)
+
+                            conexao.terminate()
+                            logger.info("Finalizada sessão SSH")
+                            conexao_tl1 = login_olt_tl1(host=ip_olt)
+                            logger.info("Iniciada sessão TL1")
+
+                            if item.get('mode', 'bridge').lower() == 'bridge':
+                                logger.info("Provisionamento em modo Bridge")
+                                desc2 = "BRIDGE"
+                                auth_bridge_tl1(conexao_tl1, serial_tl1, vlan, name, slot, pon, position, desc2)
+                            else:
+                                logger.info("Provisionamento em modo Router")
+                                desc2 = "ROUTER"
+                                ssid = item.get('ssid', '').strip()
+                                ssidpassword = item.get('ssidpassword', '').strip()
+                                user_pppoe = item.get('pppoe_user', '').strip()
+                                password_pppoe = item.get('pppoe_pass', '').strip()
+
+                                auth_router_tl1(conexao_tl1, vlan, name, desc2, user_pppoe, password_pppoe, slot, pon, position, serial_tl1)
+                                if ssid and ssidpassword:
+                                    config_wifi(conexao_tl1, slot, pon, position, ssid, ssidpassword)
+
+                            conexao_tl1.terminate()
+                            conexao = login_olt_ssh(host=ip_olt)
+                        else:
+                            serial_ssh = format_ssh_serial(serial)
+                            desc2 = "Bridge"
+
+                            add_to_pon(conexao, slot, pon, position, serial_ssh, name, desc2)
+                            time.sleep(10)
+
+                            model = onu_model(conexao, slot, pon, position)
+                            logger.info(f"Modelo da ONU detectado: {model}")
+
+                            model_group01 = {"TX-6610", "R1v2", "XZ000-G3", "Fiberlink100"}
+                            model_group02 = {"AN5506-01-A", "PON110_V3.0", "RTL9602C", "DM985-100", "HG8310M", "110Gb", "SH901"}
+
+                            if model in model_group01:
+                                auth_group01_ssh(conexao, slot, pon, position, vlan)
+                            elif model in model_group02:
+                                auth_group02_ssh(conexao, slot, pon, position, vlan)
+                            else:
+                                logger.warning(f"Modelo incompatível: {model}. Excluindo ONU/ONT.")
+                                unauthorized(conexao, serial_ssh, slot, pon, position)
+                                raise Exception(f"Modelo {model} não compatível")
+
+                        migrated_onus.append({
+                            'serial': serial,
+                            'slot': slot,
+                            'pon': pon,
+                            'position': position,
+                            'name': name,
+                            'vlan': vlan,
+                            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        })
+
+                        already_processed[serial] = 'migrated'
+                        algum_migrado_nesse_ciclo = True
+
+                    except Exception as e:
+                        logger.error(f"Erro ao migrar ONU {serial}: {str(e)}")
+                        not_migrated_onus.append({
+                            'serial': serial,
+                            'error': str(e),
+                            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        })
+                        already_processed[serial] = 'error'
+                else:
+                    logger.warning(f"Serial {serial} não encontrado na lista de ONUs não autorizadas")
+                    already_processed[serial] = 'not_found'
+
+            if not algum_migrado_nesse_ciclo:
+                logger.info("Nenhuma ONU migrada nesse ciclo. Encerrando tentativas.")
+                break
+
+        # Escrever arquivos finais
+        if migrated_onus:
+            with open('csv/migrated.csv', mode='w', newline='') as csvfile:
+                fieldnames = ['serial', 'slot', 'pon', 'position', 'name', 'vlan', 'timestamp']
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(migrated_onus)
+            logger.info(f"Arquivo csv/migrated.csv criado com {len(migrated_onus)} ONUs migradas")
+
+        if not_migrated_onus:
+            with open('csv/not_migrated.csv', mode='w', newline='') as csvfile:
+                fieldnames = ['serial', 'error', 'timestamp']
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(not_migrated_onus)
+            logger.info(f"Arquivo csv/not_migrated.csv criado com {len(not_migrated_onus)} ONUs não migradas")
+
+        print(f"\nMigração concluída!")
+        print(f"ONUs migradas com sucesso: {len(migrated_onus)}")
+        print(f"ONUs não migradas: {len(not_migrated_onus)}")
+
+    except Exception as e:
+        logger.error(f"Erro durante a migração em massa: {str(e)}")
+        print(f"Erro durante a migração: {str(e)}")
+    finally:
+        if conexao:
+            conexao.terminate()
+        if conexao_tl1:
+            conexao_tl1.terminate()
+        logger.info("Processo de migração em massa finalizado")

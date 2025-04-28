@@ -186,3 +186,5 @@ logs/
 # CSV
 csv/parks.csv
 parks.csv
+migration.csv
+nokia.csv
