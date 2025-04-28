@@ -5,9 +5,7 @@ from services.parks_service import *
 from services.nokia_service import *
 from utils.log import get_logger
 
-
 # Logger principal
-
 logger = get_logger(__name__)
 logger.info("Sistema iniciado")
 
@@ -78,22 +76,24 @@ def handle_vendor_menu(manager, vendor):
     """Menu específico para cada fabricante"""
     menu_options = {
         'parks': {
-            1: ("Provisionar ONU", "provision"),
-            2: ("Desautorizar ONU", "unauthorized_complete"),
-            3: ("Listar ONU/ONT pedindo autorização", "onu_list"),
-            4: ("Consultar Informações da ONU/ONT", "consult_information_complete"),
-            5: ("Reiniciar ONU/ONT", "reboot_complete"),
-            6: ("Lista de modelos compatíveis", "list_of_compatible_models"),
-            7: ("Fechar", "exit")
+            '1': ("Provisionar ONU", provision),
+            '2': ("Desautorizar ONU", unauthorized_complete),
+            '3': ("Listar ONU/ONT pedindo autorização", onu_list),
+            '4': ("Consultar Informações da ONU/ONT", consult_information_complete),
+            '5': ("Reiniciar ONU/ONT", reboot_complete),
+            '6': ("Lista de modelos compatíveis", list_of_compatible_models),
+            '7': ("Fechar", exit)
         },
         'nokia': {
-            1: ("Provisionar ONU", "provision_nokia"),
-            2: ("Desautorizar ONU", "unauthorized_complete_nokia"),
-            3: ("Listar ONU/ONT pedindo autorização", "onu_list_nokia"),
-            4: ("Consultar Informações da ONU/ONT", "consult_information_complete_nokia"),
-            5: ("Reiniciar ONU/ONT", "reboot_complete_nokia"),
-            6: ("Lista de modelos compatíveis", "list_of_compatible_models_nokia"),
-            7: ("Fechar", "exit")
+            '1': ("Provisionar ONU", provision_nokia),
+            '2': ("Desautorizar ONU", unauthorized_complete_nokia),
+            '3': ("Listar ONU/ONT pedindo autorização", onu_list_nokia),
+            '4': ("Consultar Informações da ONU/ONT", consult_information_complete_nokia),
+            '5': ("Reiniciar ONU/ONT", reboot_complete_nokia),
+            '6': ("Lista de modelos compatíveis", list_of_compatible_models_nokia),
+            '7': ("Habilitar acesso remoto pela WAN", grant_remote_access_wan_complete),
+            '8': ("Configurar WIFI", configure_wifi),
+            '9': ("Fechar", exit)
         }
     }
 
@@ -101,23 +101,16 @@ def handle_vendor_menu(manager, vendor):
         choice = show_menu(f"MENU {vendor.upper()}", menu_options[vendor])
         logger.info(f"Menu {vendor.upper()} - Opção selecionada: {choice}")
 
-        if choice == '7':
+        if choice == '9':
             logger.info("Sistema encerrado pelo menu")
+            clear_screen()
             exit()
-
-
-        if choice in ('1', '2', '3', '4', '5', '6'):
-            try:
-                if choice == '6': 
-                    globals()[menu_options[vendor][int(choice)][1]]()
-
-            break
             
-        if choice in ('1', '2', '3', '4', '5', '6'):  
+        if choice in menu_options[vendor]:
             try:
-                if choice == '6':  
-                    list_of_compatible_models()
-
+                if choice == '6':  # Caso especial - não precisa de OLT
+                    menu_options[vendor][choice][1]()
+                    input("\nPressione Enter para continuar...")
                     continue
 
                 if not manager.current_olt:
@@ -126,21 +119,18 @@ def handle_vendor_menu(manager, vendor):
                     time.sleep(1)
                     continue
 
-
-                function_name = menu_options[vendor][int(choice)][1]
-                logger.info(f"Executando função: {function_name}")   
-                function_name = menu_options[int(choice)][1]
-                log_interaction(f"Executando: {function_name}")
+                function = menu_options[vendor][choice][1]
+                logger.info(f"Executando função: {function.__name__}")
                 
+                # Executa a função com o IP da OLT
+                function(ip_olt=manager.current_olt)
 
-                globals()[function_name](ip_olt=manager.current_olt)
-
-                logger.info(f"Concluído: {function_name}")
+                logger.info(f"Concluído: {function.__name__}")
                 input("\nPressione Enter para continuar...")
 
             except Exception as e:
-                logger.error(f"Erro em {function_name}: {str(e)}")
-                print(f"Erro em {function_name}: {str(e)}")
+                logger.error(f"Erro na execução: {str(e)}", exc_info=True)
+                print(f"Erro na operação: {str(e)}")
                 time.sleep(2)
         else:
             print("Opção inválida!")
@@ -148,14 +138,12 @@ def handle_vendor_menu(manager, vendor):
             time.sleep(1)
 
 def main():
-
     """Função principal do sistema"""
     logger.info("Sistema iniciado")
-    log_interaction("Sistema iniciado")
     manager = OLTManager()
     vendor_options = {
-        1: "NOKIA",
-        2: "PARKS"
+        '1': "NOKIA",
+        '2': "PARKS"
     }
 
     try:
@@ -163,12 +151,10 @@ def main():
             choice = show_menu("Escolha o fabricante:", vendor_options)
             logger.info(f"Fabricante selecionado: {choice}")
 
-            if choice == '1':
-                if get_olt_connection(manager, 'nokia'):
-                    handle_vendor_menu(manager, 'nokia')
-            elif choice == '2':
-                if get_olt_connection(manager, 'parks'):
-                    handle_vendor_menu(manager, 'parks')
+            if choice in vendor_options:
+                vendor = vendor_options[choice].lower()
+                if get_olt_connection(manager, vendor):
+                    handle_vendor_menu(manager, vendor)
             else:
                 logger.warning(f"Opção inválida de fabricante: {choice}")
                 print("Opção inválida!")
