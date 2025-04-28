@@ -13,7 +13,7 @@ logger.info("Sistema iniciado")
 load_dotenv()
 
 class OLTManager:
-    def __init__(self):
+    def _init_(self):
         self.current_olt = None
         self.vendor_type = None
 
@@ -105,12 +105,20 @@ def handle_vendor_menu(manager, vendor):
             logger.info("Sistema encerrado pelo menu")
             clear_screen()
             exit()
+
             
         if choice in menu_options[vendor]:
             try:
-                if choice == '6':  # Caso especial - não precisa de OLT
+                if choice == '6':  
                     menu_options[vendor][choice][1]()
                     input("\nPressione Enter para continuar...")
+
+
+        if choice in ('1', '2', '3', '4', '5', '6'):
+            try:
+                if choice == '6': 
+                    globals()[menu_options[vendor][int(choice)][1]]()
+
                     continue
 
                 if not manager.current_olt:
@@ -119,11 +127,16 @@ def handle_vendor_menu(manager, vendor):
                     time.sleep(1)
                     continue
 
+
                 function = menu_options[vendor][choice][1]
                 logger.info(f"Executando função: {function.__name__}")
                 
-                # Executa a função com o IP da OLT
+                
                 function(ip_olt=manager.current_olt)
+
+                function_name = menu_options[vendor][int(choice)][1]
+                logger.info(f"Executando função: {function_name}")
+
 
                 logger.info(f"Concluído: {function.__name__}")
                 input("\nPressione Enter para continuar...")
@@ -141,6 +154,7 @@ def main():
     """Função principal do sistema"""
     logger.info("Sistema iniciado")
     manager = OLTManager()
+
     vendor_options = {
         '1': "NOKIA",
         '2': "PARKS"
