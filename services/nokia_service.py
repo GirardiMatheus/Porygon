@@ -669,6 +669,4 @@ def provision_nokia(ip_olt):
         conexao.terminate()
         logger.info("Finalizado processo")
         print("Finalizado.")
-
-
-
+        

@@ -112,13 +112,6 @@ def handle_vendor_menu(manager, vendor):
                 if choice == '6':  
                     menu_options[vendor][choice][1]()
                     input("\nPressione Enter para continuar...")
-
-
-        if choice in ('1', '2', '3', '4', '5', '6'):
-            try:
-                if choice == '6': 
-                    globals()[menu_options[vendor][int(choice)][1]]()
-
                     continue
 
                 if not manager.current_olt:
@@ -131,12 +124,7 @@ def handle_vendor_menu(manager, vendor):
                 function = menu_options[vendor][choice][1]
                 logger.info(f"Executando função: {function.__name__}")
                 
-                
                 function(ip_olt=manager.current_olt)
-
-                function_name = menu_options[vendor][int(choice)][1]
-                logger.info(f"Executando função: {function_name}")
-
 
                 logger.info(f"Concluído: {function.__name__}")
                 input("\nPressione Enter para continuar...")
