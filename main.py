@@ -94,7 +94,8 @@ def handle_vendor_menu(manager, vendor):
             '7': ("Habilitar acesso remoto pela WAN", grant_remote_access_wan_complete),
             '8': ("Configurar WIFI", configure_wifi),
             '9': ("Migração em massa", mass_migration_nokia),
-            '10': ("Fechar", exit)
+            '10': ("Criar csv para migração ou divisão de PON", list_onu_csv_nokia),
+            '11': ("Fechar", exit)
         }
     }
 
@@ -102,7 +103,7 @@ def handle_vendor_menu(manager, vendor):
         choice = show_menu(f"MENU {vendor.upper()}", menu_options[vendor])
         logger.info(f"Menu {vendor.upper()} - Opção selecionada: {choice}")
 
-        if choice == '10':
+        if choice == '11':
             logger.info("Sistema encerrado pelo menu")
             clear_screen()
             exit()
