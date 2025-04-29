@@ -1,18 +1,22 @@
 from parks.parks_ssh import *
 import csv
 import random
+from utils.log import get_logger
+
+# Configura o logger para este módulo
+logger = get_logger(__name__)
 
 
 def provision(ip_olt):
     """Função de provisionamento com logs detalhados"""
     try:
         # Conexão SSH
-        log_interaction(f"Conectando à OLT {ip_olt}")
+        logger.info(f"Conectando à OLT {ip_olt}")
         conexao = login_ssh(host=ip_olt)
-        log_interaction("Conexão SSH estabelecida com sucesso")
+        logger.info("Conexão SSH estabelecida com sucesso")
 
         # Listar ONUs não autorizadas
-        log_interaction("Listando ONUs não autorizadas...")
+        logger.info("Listando ONUs não autorizadas...")
         blacklist = list_unauthorized(conexao)
 
         if not blacklist:
@@ -23,34 +27,34 @@ def provision(ip_olt):
         print("\nONUs na blacklist:")
         for serial, dados in blacklist.items():
             print(f"Serial: {serial} | Slot: {dados['slot']} | PON: {dados['pon']}")
-            log_interaction(f"Serial: {serial}, PON: {dados['pon']}")
+            logger.info(f"Serial: {serial}, PON: {dados['pon']}")
 
         # Consulta informações da ONU
         serial = input("\nQual o serial da ONU? ").strip().lower()
-        log_interaction(f"Serial informado: {serial}")
+        logger.info(f"Serial informado: {serial}")
 
         # Verificar se o serial existe na blacklist e obter a PON correspondente
         if serial in blacklist:
             pon = blacklist[serial]['pon']
-            log_interaction(f"PON encontrada para {serial}: {pon}")
+            logger.info(f"PON encontrada para {serial}: {pon}")
             add_onu_to_pon(conexao, serial, pon)
             time.sleep(random.uniform(10, 30))
         else:
             print(f"Erro: Serial {serial} não encontrado na blacklist")
-            log_interaction(f"Serial não encontrado: {serial}")
+            logger.warning(f"Serial não encontrado: {serial}")
         
 
-        log_interaction(f"Consultando informações da ONU {serial}...")
+        logger.info(f"Consultando informações da ONU {serial}...")
         dados_onu = consult_information(conexao, serial)
         
         if not dados_onu or not dados_onu['model']:
             msg = "Falha ao obter informações da ONU"
-            log_interaction(msg)
+            logger.error(msg)
             print(msg)
             return
             
         model = dados_onu['model'].strip()
-        log_interaction(f"Dados ONU - Modelo: {model}, PON: {pon}")
+        logger.info(f"Dados ONU - Modelo: {model}, PON: {pon}")
 
         # Determinar tipo de ONU
         bridge_models = {"TX-6610", "R1v2", "XZ000-G3", "Fiberlink100", "110", "AN5506-01-A", "FiberLink101"}
@@ -63,19 +67,19 @@ def provision(ip_olt):
         else:
             onu_type = None
             
-        log_interaction(f"Tipo detectado: {onu_type or 'Desconhecido'}")
+        logger.info(f"Tipo detectado: {onu_type or 'Desconhecido'}")
         print(model)
 
         if not onu_type:
             msg = f"Modelo {model} não reconhecido"
-            log_interaction(msg)
+            logger.warning(msg)
             print(msg)
             return
 
         # Carregar configurações do CSV
         csv_path = './csv/parks.csv'
         try:
-            log_interaction(f"Consultando CSV em {csv_path}...")
+            logger.info(f"Consultando CSV em {csv_path}...")
             with open(csv_path, mode='r') as csvfile:
                 reader = csv.DictReader(csvfile)
                 for row in reader:
@@ -89,94 +93,95 @@ def provision(ip_olt):
                         
                         vlan = row['vlan']
                         profile = row['profile']
-                        log_interaction(f"Config CSV - VLAN: {vlan}, Profile: {profile}")
+                        logger.info(f"Config CSV - VLAN: {vlan}, Profile: {profile}")
                         break
                 else:
                     msg = f"Configuração não encontrada para OLT {ip_olt} PON {pon} Tipo {onu_type}"
-                    log_interaction(msg)
+                    logger.warning(msg)
                     print(msg)
                     vlan = input("Digite a VLAN: ").strip()
                     profile = input("Digite o profile: ").strip()
-                    log_interaction(f"Valores manuais - VLAN: {vlan}, Profile: {profile}")
+                    logger.info(f"Valores manuais - VLAN: {vlan}, Profile: {profile}")
             
         except FileNotFoundError:
             msg = f"Arquivo CSV não encontrado em {csv_path}"
-            log_interaction(msg, "error")
+            logger.error(msg)
             print(msg)
             vlan = input("Digite a VLAN: ").strip()
             profile = input("Digite o profile: ").strip()
                     
         except Exception as e:
             msg = f"Erro ao ler CSV: {str(e)}"
-            log_interaction(msg)
+            logger.error(msg)
             print(msg)
             vlan = input("Digite a VLAN: ").strip()
             profile = input("Digite o profile: ").strip()
-            log_interaction(f"Valores manuais - VLAN: {vlan}, Profile: {profile}")
+            logger.info(f"Valores manuais - VLAN: {vlan}, Profile: {profile}")
 
         # Dados adicionais
-        nome = str(input("\nDigite o alias/nome da ONU: ")).strip() or serial
-        log_interaction(f"Alias/Nome definido: {nome}")
+        nome = str(input("\nDigite o alias/nome da ONU: ")).strip().replace(" ", "_") or serial
+        logger.info(f"Alias/Nome definido: {nome}")
 
         # Provisionamento específico
-        log_interaction(f"Iniciando provisionamento como {onu_type}...")
+        logger.info(f"Iniciando provisionamento como {onu_type}...")
         if onu_type == 'bridge':
-            log_interaction("Executando fluxo Bridge...")
+            logger.info("Executando fluxo Bridge...")
             auth_bridge(conexao, serial, pon, nome, profile, vlan)
         
         elif model in ["ONU HW01N", "Fiberlink210"]:
-            log_interaction(f"Executando fluxo Default Router para {model}...")
+            logger.info(f"Executando fluxo Default Router para {model}...")
             login_pppoe = input("Qual login PPPoE do cliente? ")
             senha_pppoe = input("Qual a senha do PPPoE do cliente? ")
-            log_interaction(f"Credenciais PPPoE coletadas {login_pppoe}, {senha_pppoe}")
+            logger.info(f"Credenciais PPPoE coletadas (usuário oculto no log)")
             if not vlan.isdigit():
                 print("Erro: VLAN deve conter apenas números")
                 return
             auth_router_default(conexao, serial, nome, vlan, pon, profile, login_pppoe, senha_pppoe)
             
         elif model == "121AC":
-            log_interaction(f"Executando fluxo {model}...")
+            logger.info(f"Executando fluxo {model}...")
             auth_router_121AC(conexao, serial, pon, nome, profile, vlan)
             print("ALERTA: Configurar PPPoE/WiFi manualmente")
             
         elif model in ["FiberLink411", "ONU GW24AC"]:
-            log_interaction(f"Executando fluxo {model}...")
+            logger.info(f"Executando fluxo {model}...")
             login_pppoe = input("Qual login PPPoE do cliente? ")
             senha_pppoe = input("Qual a senha do PPPoE do cliente? ")
-            log_interaction(f"Credenciais PPPoE coletadas {login_pppoe}, {senha_pppoe}")
+            logger.info(f"Credenciais PPPoE coletadas (usuário oculto no log)")
             auth_router_config2(conexao, serial, pon, nome, vlan, profile, login_pppoe, senha_pppoe)
 
         elif model == "Fiberlink501(Rev2)":
-            log_interaction(f"Executando fluxo {model}...")
+            logger.info(f"Executando fluxo {model}...")
             login_pppoe = input("Qual login PPPoE do cliente? ")
             senha_pppoe = input("Qual a senha do PPPoE do cliente? ")
-            log_interaction(f"Credenciais PPPoE coletadas {login_pppoe}, {senha_pppoe}")
+            logger.info(f"Credenciais PPPoE coletadas (usuário oculto no log)")
             auth_router_Fiberlink501Rev2(conexao, serial, pon, nome, profile, login_pppoe, senha_pppoe)
 
-
-        log_interaction(f"Provisionamento concluído - ONU {serial} na PON {pon}")
+        logger.info(f"Provisionamento concluído - ONU {serial} na PON {pon}")
         print(f"\nProvisionamento concluído com sucesso!")
 
     except Exception as e:
         error_msg = f"ERRO NO PROVISIONAMENTO: {str(e)}"
-        conexao.terminate()
-        log_interaction(error_msg)
+        if 'conexao' in locals():
+            conexao.terminate()
+        logger.error(error_msg)
         print(error_msg)
         
     finally:
         if 'conexao' in locals():
-            log_interaction("Encerrando conexão SSH...")
+            logger.info("Encerrando conexão SSH...")
             conexao.terminate()
 
 def onu_list(ip_olt):
+    conexao = None
     try:
         # Conexão SSH
-        log_interaction(f"Conectando à OLT {ip_olt}")
+        logger.info(f"Conectando à OLT {ip_olt}")
         conexao = login_ssh(host=ip_olt)
-        log_interaction("Conexão SSH estabelecida com sucesso")
+        logger.info("Conexão SSH estabelecida com sucesso")
 
         # Listar ONUs não autorizadas
-        log_interaction("Listando ONUs não autorizadas...")
+        logger.info("Listando ONUs não autorizadas...")
         blacklist = list_unauthorized(conexao)
 
         if not blacklist:
@@ -186,106 +191,102 @@ def onu_list(ip_olt):
         print("\nONUs na blacklist:")
         for serial, dados in blacklist.items():
             print(f"Serial: {serial} | Slot: {dados['slot']} | PON: {dados['pon']}")
-            conexao.terminate()
     
     except Exception as e:
         error_msg = f"ERRO AO LISTAR ONU's: {str(e)}"
-        conexao.terminate()
-        log_interaction(error_msg)
-
+        logger.error(error_msg)
         print(error_msg)
 
     finally:
-        if 'conexao' in locals():
-            log_interaction("Encerrando conexão SSH...")
+        if conexao:
+            logger.info("Encerrando conexão SSH...")
             conexao.terminate()
 
 def unauthorized_complete(ip_olt):
     conexao = None
     try:
         # 1. Conexão SSH
-        log_interaction(f"Iniciando processo para desautorizar ONU na OLT {ip_olt}")
+        logger.info(f"Iniciando processo para desautorizar ONU na OLT {ip_olt}")
         conexao = login_ssh(host=ip_olt)
         if not conexao:
             print("Falha ao conectar na OLT")
-            log_interaction("Conexão SSH falhou", level="ERROR")
+            logger.error("Conexão SSH falhou")
             return False
 
         # 2. Consulta ONU
         serial = input("Qual o serial da ONU? ").strip().lower()
-        log_interaction(f"Serial informado: {serial}")
+        logger.info(f"Serial informado: {serial}")
         
         dados_onu = consult_information(conexao, serial)
         if not dados_onu:
             print("ONU/ONT não encontrada na OLT")
-            log_interaction(f"ONU {serial} não encontrada", level="WARNING")
+            logger.warning(f"ONU {serial} não encontrada")
             return False
 
         pon = dados_onu.get('pon')
         if not pon:
             print("Falha ao obter informação da PON")
-            log_interaction("Dados da PON não encontrados", level="ERROR")
+            logger.error("Dados da PON não encontrados")
             return False
 
         # Formata PON (extrai apenas o número)
         pon_numero = pon.split('/')[-1] if '/' in pon else pon
-        log_interaction(f"Dados obtidos - Serial: {serial}, PON: {pon_numero}")
+        logger.info(f"Dados obtidos - Serial: {serial}, PON: {pon_numero}")
 
         # 3. Reboot
-        log_interaction(f"Iniciando reboot da ONU {serial}")
+        logger.info(f"Iniciando reboot da ONU {serial}")
         if not reboot(conexao, pon_numero, serial):
             print("Falha no reboot da ONU")
-            log_interaction("Reboot falhou", level="ERROR")
+            logger.error("Reboot falhou")
             return False
 
         print("ONU reiniciada com sucesso, aguardando 10 segundos...")
         time.sleep(10)  
 
         # 4. Desautorização
-        log_interaction(f"Iniciando desautorização da ONU {serial}")
+        logger.info(f"Iniciando desautorização da ONU {serial}")
         if not unauthorized(conexao, pon_numero, serial):
             print("Falha na desautorização da ONU")
-            log_interaction("Desautorização falhou", level="ERROR")
+            logger.error("Desautorização falhou")
             return False
 
         print("✅ ONU desautorizada com sucesso")
-        log_interaction(f"Processo completo concluído para ONU {serial}")
+        logger.info(f"Processo completo concluído para ONU {serial}")
         return True
 
     except Exception as e:
         error_msg = f"Erro no processo: {str(e)}"
         print(f"⚠️ Erro: {error_msg}")
-        log_interaction(error_msg, level="ERROR")
+        logger.error(error_msg)
         return False
 
     finally:
         # 5. Encerra conexão
-        if 'conexao' in locals() and conexao:
-            log_interaction("Encerrando conexão SSH")
+        if conexao:
+            logger.info("Encerrando conexão SSH")
             conexao.terminate()
 
 def consult_information_complete(ip_olt):
     conexao = None
     try:
-        log_interaction(f"Iniciando consulta completa para OLT {ip_olt}")
+        logger.info(f"Iniciando consulta completa para OLT {ip_olt}")
         
         # Estabelece conexão SSH
         conexao = login_ssh(host=ip_olt)
-        log_interaction("Conexão SSH estabelecida com sucesso")
+        logger.info("Conexão SSH estabelecida com sucesso")
         
         # Solicita serial da ONU
         serial = input("Qual o serial da ONU? ").strip().lower()
-        log_interaction(f"Serial informado pelo usuário: {serial}")
+        logger.info(f"Serial informado pelo usuário: {serial}")
         
         # Consulta informações da ONU
-        log_interaction(f"Consultando informações da ONU {serial}")
+        logger.info(f"Consultando informações da ONU {serial}")
         dados_onu = consult_information(conexao, serial)
         
         if not dados_onu:
             msg = "Falha ao consultar informações da ONU/ONT ou ONU não encontrada"
             print(msg)
-            conexao.terminate()
-            log_interaction(msg, level="WARNING")
+            logger.warning(msg)
             return
             
         # Extrai dados
@@ -311,71 +312,69 @@ def consult_information_complete(ip_olt):
         )
         
         print(info_formatada)
-        log_interaction(f"Informações exibidas para o usuário:\n{info_formatada}")
+        logger.info(f"Informações exibidas para o usuário:\n{info_formatada}")
         
     except Exception as e:
         error_msg = f"Erro durante consulta: {str(e)}"
         print(f"\nErro: {error_msg}")
-        conexao.terminate()
-        log_interaction(error_msg, level="ERROR")
+        logger.error(error_msg)
         
     finally:
         if conexao:
-            log_interaction("Encerrando conexão SSH")
+            logger.info("Encerrando conexão SSH")
             conexao.terminate()
 
 def reboot_complete(ip_olt):
     conexao = None
     try:
         # 1. Conexão SSH
-        log_interaction(f"Iniciando processo para desautorizar ONU na OLT {ip_olt}")
+        logger.info(f"Iniciando processo para desautorizar ONU na OLT {ip_olt}")
         conexao = login_ssh(host=ip_olt)
         if not conexao:
             print("Falha ao conectar na OLT")
-            log_interaction("Conexão SSH falhou", level="ERROR")
+            logger.error("Conexão SSH falhou")
             return False
 
         # 2. Consulta ONU
         serial = input("Qual o serial da ONU? ").strip().lower()
-        log_interaction(f"Serial informado: {serial}")
+        logger.info(f"Serial informado: {serial}")
         
         dados_onu = consult_information(conexao, serial)
         if not dados_onu:
             print("ONU/ONT não encontrada na OLT")
-            log_interaction(f"ONU {serial} não encontrada", level="WARNING")
+            logger.warning(f"ONU {serial} não encontrada")
             return False
 
         pon = dados_onu.get('pon')
         if not pon:
             print("Falha ao obter informação da PON")
-            log_interaction("Dados da PON não encontrados", level="ERROR")
+            logger.error("Dados da PON não encontrados")
             return False
 
         # Formata PON (extrai apenas o número)
         pon_numero = pon.split('/')[-1] if '/' in pon else pon
-        log_interaction(f"Dados obtidos - Serial: {serial}, PON: {pon_numero}")
+        logger.info(f"Dados obtidos - Serial: {serial}, PON: {pon_numero}")
 
         # 3. Reboot
-        log_interaction(f"Iniciando reboot da ONU {serial}")
+        logger.info(f"Iniciando reboot da ONU {serial}")
         if not reboot(conexao, pon_numero, serial):
             print("Falha no reboot da ONU")
-            log_interaction("Reboot falhou", level="ERROR")
+            logger.error("Reboot falhou")
             return False
         
         print("✅ ONU desautorizada com sucesso")
-        log_interaction(f"Processo completo concluído para ONU {serial}")
+        logger.info(f"Processo completo concluído para ONU {serial}")
         return True
             
     except Exception as e:
         error_msg = f"Erro no processo: {str(e)}"
         print(f"⚠️ Erro: {error_msg}")
-        log_interaction(error_msg, level="ERROR")
+        logger.error(error_msg)
         return False
 
     finally:
-        # 5. Encerra conexão
-        if 'conexao' in locals() and conexao:
-            log_interaction("Encerrando conexão SSH")
+        if conexao:
+            logger.info("Encerrando conexão SSH")
             conexao.terminate()
 
 def list_of_compatible_models():
@@ -386,11 +385,11 @@ def list_of_compatible_models():
                     "Fiberlink501(Rev2)", "ONU GW24AC", "Fiberlink210"]
 
     print("\n=== MODELOS SUPORTADOS ===")
-    print("\n🔷 MODOS BRIDGE:")
+    print("\n🔷 BRIDGE:")
     for modelo in bridge_models:
         print(f"  → {modelo}")
     
-    print("\n🔶 MODOS ROTEADOR:")
+    print("\n🔶 ROUTER:")
     for modelo in router_models:
         print(f"  → {modelo}")
     
