@@ -1,7 +1,11 @@
-from dotenv import load_dotenv
 import pexpect
 import os
 import time
+import csv
+import re
+from dotenv import load_dotenv
+from datetime import datetime
+from typing import Optional
 from utils.log import get_logger
 
 # Configura o logger para este módulo
@@ -26,6 +30,8 @@ def login_ssh(host=None):
 
         if login_success == 0:
             logger.info(f"Conexão estabelecida com sucesso à OLT {host}")
+            child.sendline(f"terminal length 0")
+            child.expect("#")
             print(f"✅ Conectado com sucesso à OLT {host}")
         else:
             logger.error("Não foi possível autenticar na OLT")
@@ -89,7 +95,6 @@ def list_unauthorized(child):
     except Exception as e:
         logger.error(f"Erro ao listar ONUs não autorizadas: {e}")
         return None
-
 
 def consult_information(child, serial, max_attempts=20, delay_between_attempts=5):
     try:
@@ -193,7 +198,6 @@ def consult_information(child, serial, max_attempts=20, delay_between_attempts=5
         logger.error(f"Erro crítico: {str(e)}")
         print(f"\nErro crítico: {str(e)}")
         return None
-
 
 def add_onu_to_pon(child, serial, pon):
     try:
@@ -376,8 +380,7 @@ def auth_router_default(child, serial, nome, vlan, pon, profile, login_pppoe, se
         error_msg = f"Falha ao autorizar ONU {serial}: {str(e)}"
         logger.error(error_msg)
         return False
-        
-    
+          
 def auth_router_121AC(child, serial, pon, nome, profile, vlan):
     try:
         logger.info(f"Iniciando autenticação 121AC para ONU {serial} na PON {pon} - Nome: {nome}, Perfil: {profile}, VLAN: {vlan}")
@@ -833,3 +836,66 @@ def reboot(child, pon, serial):
         error_msg = f"Erro ao reiniciar ONU {serial}: {str(e)}"
         logger.error(error_msg)
         return False
+
+def list_onu(child, pon, ip_olt):
+    try:
+        now = datetime.now().strftime("%Y-%m-%d_%H-%M")
+        csv_filename = f"parks_onu_list_{ip_olt.replace('.', '-')}_pon{pon}_{now}.csv"
+        csv_path = os.path.join("csv", csv_filename)
+
+        # Envia comando para listar ONUs com modelo
+        command = f"show interface gpon1/{pon} onu model"
+        child.sendline(command)
+        child.expect("#", timeout=10)
+        output = child.before.decode() if isinstance(child.before, bytes) else child.before
+
+        matches = []
+        for line in output.splitlines():
+            if any(x in line.lower() for x in ["serial", "model"]):
+                continue
+            parts = [p.strip() for p in line.strip().split('|') if p.strip()]
+            if len(parts) >= 2:
+                serial = parts[0]
+                model = parts[1]
+                matches.append((serial, model))
+            elif len(parts) == 1 and re.match(r"^\w{12}$", parts[0]):
+                serial = parts[0]
+                model = ""
+                matches.append((serial, model))
+
+        if not matches:
+            logger.warning("Nenhuma ONU encontrada na PON %s", pon)
+            return []
+
+        onu_data = []
+        for serial, model in matches:
+            # Busca alias da ONU via comando adicional
+            command2 = f"show gpon onu {serial} summary"
+            child.sendline(command2)
+            child.expect("#", timeout=10)
+            output2 = child.before.decode() if isinstance(child.before, bytes) else child.before
+
+            alias_match = re.search(r"Alias\s+:\s+(.+)", output2)
+            alias = alias_match.group(1).strip() if alias_match else ""
+
+            onu_data.append({
+                "serial": serial.strip(),
+                "model": model.strip(),
+                "alias": alias.strip()
+            })
+
+        os.makedirs("csv", exist_ok=True)
+
+        with open(csv_path, mode='w', newline='') as f:
+            fieldnames = ['serial', 'model', 'alias']
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            for onu in onu_data:
+                writer.writerow(onu)
+
+        logger.info("%d ONUs processadas e salvas no CSV %s.", len(onu_data), csv_filename)
+        return onu_data
+
+    except Exception as e:
+        logger.error("Erro ao executar list_onu: %s", str(e))
+        return []
