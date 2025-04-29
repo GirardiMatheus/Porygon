@@ -394,3 +394,30 @@ def list_of_compatible_models():
         print(f"  → {modelo}")
     
     input("\nPressione Enter para voltar...")
+
+def list_onu_csv_parks(ip_olt):
+    pon = input("Digite a PON: ")
+    conexao = None
+
+    try:
+        # Conexão SSH
+        logger.info(f"Conectando à OLT {ip_olt} para listagem de ONUs")
+        conexao = login_ssh(host=ip_olt)
+        logger.info("Conexão SSH estabelecida com sucesso")
+
+        # Execução da função de listagem
+        sucess = list_onu(conexao, pon, ip_olt)
+
+        if sucess:
+            print("✅ Lista de ONUs salva com sucesso.")
+        else:
+            print("⚠️ Nenhuma ONU listada ou falha ao salvar o CSV.")
+
+    except Exception as e:
+        logger.error(f"Erro durante o processo de listagem: {str(e)}", exc_info=True)
+        print("❌ Erro ao executar o processo de listagem de ONUs.")
+
+    finally:
+        if conexao:
+            logger.info("Encerrando conexão SSH")
+            conexao.terminate()

@@ -82,7 +82,8 @@ def handle_vendor_menu(manager, vendor):
             '4': ("Consultar Informações da ONU/ONT", consult_information_complete),
             '5': ("Reiniciar ONU/ONT", reboot_complete),
             '6': ("Lista de modelos compatíveis", list_of_compatible_models),
-            '7': ("Fechar", exit)
+            '7': ("Criar csv para migração ou divisão de pon", list_onu_csv_parks),
+            '0': ("Fechar", exit)
         },
         'nokia': {
             '1': ("Provisionar ONU", provision_nokia),
@@ -95,7 +96,7 @@ def handle_vendor_menu(manager, vendor):
             '8': ("Configurar WIFI", configure_wifi),
             '9': ("Migração em massa", mass_migration_nokia),
             '10': ("Criar csv para migração ou divisão de PON", list_onu_csv_nokia),
-            '11': ("Fechar", exit)
+            '0': ("Fechar", exit)
         }
     }
 
@@ -103,7 +104,7 @@ def handle_vendor_menu(manager, vendor):
         choice = show_menu(f"MENU {vendor.upper()}", menu_options[vendor])
         logger.info(f"Menu {vendor.upper()} - Opção selecionada: {choice}")
 
-        if choice == '11':
+        if choice == '0':
             logger.info("Sistema encerrado pelo menu")
             clear_screen()
             exit()
