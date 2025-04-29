@@ -1,6 +1,8 @@
 from nokia.nokia_ssh import *
 from nokia.nokia_tl1 import *
 import csv
+import time
+import re
 from utils.log import get_logger
 from datetime import datetime
 
@@ -872,3 +874,35 @@ def mass_migration_nokia(ip_olt):
         if conexao_tl1:
             conexao_tl1.terminate()
         logger.info("Processo de migração em massa finalizado")
+
+def list_onu_csv_nokia(ip_olt):
+    slot = input("Digite o CARD: ")
+    pon = input("Digite a PON: ")
+    conexao = None
+
+    try:
+        # Conexão SSH
+        logger.info(f"Conectando à OLT {ip_olt} para listagem de ONUs")
+        conexao = login_olt_ssh(host=ip_olt)
+        logger.info("Conexão SSH estabelecida com sucesso")
+
+        # Execução da função de listagem
+        sucess = list_onu(conexao, slot, pon)
+
+        if sucess:
+            print("✅ Lista de ONUs salva com sucesso.")
+        else:
+            print("⚠️ Nenhuma ONU listada ou falha ao salvar o CSV.")
+
+    except Exception as e:
+        logger.error(f"Erro durante o processo de listagem: {str(e)}", exc_info=True)
+        print("❌ Erro ao executar o processo de listagem de ONUs.")
+
+    finally:
+        if conexao:
+            try:
+                conexao.sendline("logout")
+                conexao.expect(pexpect.EOF)
+                logger.info("Conexão encerrada com a OLT")
+            except Exception as e:
+                logger.warning(f"Erro ao encerrar a sessão com a OLT: {str(e)}")
