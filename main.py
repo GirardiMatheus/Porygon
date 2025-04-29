@@ -13,7 +13,7 @@ logger.info("Sistema iniciado")
 load_dotenv()
 
 class OLTManager:
-    def _init_(self):
+    def __init__(self):
         self.current_olt = None
         self.vendor_type = None
 
@@ -57,7 +57,12 @@ def get_olt_connection(manager, vendor):
     }
 
     while True:
-        choice = show_menu(f"Escolha a OLT {vendor.upper()} desejada:", olt_options[vendor])
+        menu = {str(k): v for k, v in olt_options[vendor].items()}
+        menu['B'] = "Voltar"
+        choice = show_menu(f"Escolha a OLT {vendor.upper()} desejada:", menu)
+
+        if choice.upper() == 'B':
+            return False
 
         if choice.isdigit() and int(choice) in olt_options[vendor]:
             name, ip = olt_options[vendor][int(choice)]
@@ -83,7 +88,7 @@ def handle_vendor_menu(manager, vendor):
             '5': ("Reiniciar ONU/ONT", reboot_complete),
             '6': ("Lista de modelos compatíveis", list_of_compatible_models),
             '7': ("Criar csv para migração ou divisão de pon", list_onu_csv_parks),
-            '0': ("Fechar", exit)
+            '0': ("Voltar ao menu anterior", None)
         },
         'nokia': {
             '1': ("Provisionar ONU", provision_nokia),
@@ -96,7 +101,7 @@ def handle_vendor_menu(manager, vendor):
             '8': ("Configurar WIFI", configure_wifi),
             '9': ("Migração em massa", mass_migration_nokia),
             '10': ("Criar csv para migração ou divisão de PON", list_onu_csv_nokia),
-            '0': ("Fechar", exit)
+            '0': ("Voltar ao menu anterior", None)
         }
     }
 
@@ -105,14 +110,12 @@ def handle_vendor_menu(manager, vendor):
         logger.info(f"Menu {vendor.upper()} - Opção selecionada: {choice}")
 
         if choice == '0':
-            logger.info("Sistema encerrado pelo menu")
-            clear_screen()
-            exit()
+            logger.info("Retornando ao menu anterior")
+            return
 
-            
         if choice in menu_options[vendor]:
             try:
-                if choice == '6':  
+                if choice == '6':
                     menu_options[vendor][choice][1]()
                     input("\nPressione Enter para continuar...")
                     continue
@@ -123,12 +126,9 @@ def handle_vendor_menu(manager, vendor):
                     time.sleep(1)
                     continue
 
-
                 function = menu_options[vendor][choice][1]
                 logger.info(f"Executando função: {function.__name__}")
-                
                 function(ip_olt=manager.current_olt)
-
                 logger.info(f"Concluído: {function.__name__}")
                 input("\nPressione Enter para continuar...")
 
@@ -148,13 +148,19 @@ def main():
 
     vendor_options = {
         '1': "NOKIA",
-        '2': "PARKS"
+        '2': "PARKS",
+        '0': "Sair"
     }
 
     try:
         while True:
             choice = show_menu("Escolha o fabricante:", vendor_options)
             logger.info(f"Fabricante selecionado: {choice}")
+
+            if choice == '0':
+                logger.info("Sistema encerrado pelo usuário")
+                print("Saindo...")
+                break
 
             if choice in vendor_options:
                 vendor = vendor_options[choice].lower()
