@@ -2,6 +2,8 @@ import pexpect
 import os
 import time
 import re
+import csv
+import xml.etree.ElementTree as ET
 from dotenv import load_dotenv
 from utils.log import get_logger
 from ast import List
@@ -389,3 +391,88 @@ def format_ssh_serial(serial: str) -> str:
     except Exception as e:
         logger.error(f"Erro ao formatar o serial '{serial}': {e}")
         return ""
+
+def list_onu(child, slot, pon):
+    try:
+        logger.info(f"Iniciando listagem das ONUs da PON 1/1/{slot}/{pon}")
+        child.sendline(f"show equipment ont status pon 1/1/{slot}/{pon} xml")
+        time.sleep(5)  # aguarda resposta da OLT
+        child.expect("#", timeout=15)
+        output = child.before
+        logger.debug("Saída recebida da OLT:\n" + output)
+
+        # Identifica e isola o conteúdo XML
+        start_index = output.find("<?xml")
+        if start_index == -1:
+            logger.error("Início do XML ('<?xml') não encontrado na saída.")
+            print("❌ XML não encontrado na resposta da OLT")
+            return False
+
+        # Encontra o fim do XML (tag de fechamento </runtime-data>)
+        end_tag = "</runtime-data>"
+        end_index = output.find(end_tag, start_index)
+        if end_index == -1:
+            logger.error("Tag de fechamento do XML não encontrada na saída.")
+            print("❌ XML incompleto na resposta da OLT")
+            return False
+
+        # Extrai o XML completo
+        xml_content = output[start_index:end_index + len(end_tag)]
+        logger.debug(f"Conteúdo XML extraído:\n{xml_content}")
+
+        # Parse do XML
+        try:
+            root = ET.fromstring(xml_content)
+        except ET.ParseError as e:
+            logger.error(f"Falha ao fazer parse do XML: {e}, conteúdo XML:\n{xml_content}")
+            print("❌ Erro ao interpretar o XML")
+            return False
+
+        # Processa os dados das ONUs
+        data = []
+        for instance in root.findall(".//instance"):
+            serial = instance.findtext(".//info[@name='sernum']", default="").strip()
+            ont_id = instance.findtext(".//res-id[@name='ont']", default="").strip()
+            position = ont_id.split('/')[-1] if ont_id else ""
+            name = instance.findtext(".//info[@name='desc1']", default="").strip().replace('"', '')
+            model = instance.findtext(".//info[@name='desc2']", default="").strip()  
+
+            if not serial or serial.lower() == "undefined":
+                continue
+
+            data.append([serial.replace(":", ""), pon, position, name, model])
+            logger.debug(f"ONU - SERIAL: {serial}, PON: {pon}, POSIÇÃO: {position}, NAME: {name}, MODEL: {model}")
+
+        if not data:
+            logger.warning(f"Nenhuma ONU encontrada na PON 1/1/{slot}/{pon}")
+            print(f"⚠️ Nenhuma ONU encontrada na PON 1/1/{slot}/{pon}")
+            return False
+
+        # Cria diretório para salvar o CSV
+        os.makedirs("csv", exist_ok=True)
+        file_path = os.path.join("csv", f"onulist_slot{slot}_pon{pon}.csv")
+
+        # Gera o CSV com os dados coletados
+        with open(file_path, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["SERIAL", "PON", "POSITION", "NAME", "MODEL"])
+            writer.writerows(data)
+
+        logger.info(f"✅ CSV gerado com sucesso: {file_path} ({len(data)} ONUs)")
+        print(f"✅ CSV gerado: {file_path}")
+        return True
+
+    except pexpect.TIMEOUT:
+        logger.error(f"Timeout ao esperar resposta da OLT na PON 1/1/{slot}/{pon}")
+        print("❌ Timeout na comunicação com a OLT")
+        return False
+
+    except pexpect.ExceptionPexpect as e:
+        logger.error(f"Erro de comunicação com a OLT: {e}", exc_info=True)
+        print("❌ Erro de comunicação com a OLT")
+        return False
+
+    except Exception as e:
+        logger.error(f"Erro inesperado: {e}", exc_info=True)
+        print("❌ Erro inesperado ao listar ONUs")
+        return False
