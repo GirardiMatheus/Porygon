@@ -472,7 +472,7 @@ def provision_nokia(ip_olt):
             with open(csv_path, mode='r') as csvfile:
                 reader = csv.DictReader(csvfile)
                 for row in reader:
-                    if (row['slot'] == slot and str(row['PON']) == str(pon)):
+                    if (row['CARD'] == slot and str(row['PON']) == str(pon)):
                         vlan = row['VLAN']
                         logger.info(f"Config CSV - VLAN: {vlan}")
                         break
@@ -676,13 +676,12 @@ def provision_nokia(ip_olt):
 def mass_migration_nokia(ip_olt):
     """
     Função para migração em massa de ONUs baseada em um CSV de migração.
-    Repete enquanto houver ONUs pendentes de migração.
+    O campo 'model' agora também pode ser especificado no CSV.
     """
     conexao = None
     conexao_tl1 = None
 
     try:
-        # Conexão SSH
         logger.info(f"Conectando à OLT {ip_olt} para migração em massa")
         conexao = login_olt_ssh(host=ip_olt)
         logger.info("Conexão SSH estabelecida com sucesso")
@@ -699,7 +698,7 @@ def mass_migration_nokia(ip_olt):
             logger.error(f"Erro ao ler CSV de migração: {str(e)}")
             print("Erro ao ler o arquivo csv/migration.csv")
             return
-        
+
         # Carregar dados do nokia.csv
         vlan_data = []
         try:
@@ -712,15 +711,11 @@ def mass_migration_nokia(ip_olt):
             logger.error(f"Erro ao ler CSV nokia.csv: {str(e)}")
             print("Erro ao ler o arquivo csv/nokia.csv")
             return
-        
-        # Criar dicionário para busca rápida de VLAN
+
         vlan_lookup = {(row['CARD'], row['PON']): row['VLAN'] for row in vlan_data}
 
-        # Preparar arquivos de saída
         migrated_onus = []
         not_migrated_onus = []
-
-        # Dicionário dos seriais já migrados ou falhados
         already_processed = {}
 
         while True:
@@ -732,10 +727,7 @@ def mass_migration_nokia(ip_olt):
                 print("Nenhuma ONU ou ONT pedindo autorização...")
                 break
 
-            # Criar dicionário de lookup rápido
             unauth_dict = {onu[0].upper(): (onu[1], onu[2]) for onu in unauthorized_onu}
-
-            # Filtrar migration_data removendo o que já foi processado
             pendentes = [item for item in migration_data if item['serial'].upper().strip() not in already_processed]
 
             if not pendentes:
@@ -743,7 +735,6 @@ def mass_migration_nokia(ip_olt):
                 break
 
             logger.info(f"Iniciando novo ciclo de tentativa para {len(pendentes)} ONUs")
-
             algum_migrado_nesse_ciclo = False
 
             for item in pendentes:
@@ -751,12 +742,10 @@ def mass_migration_nokia(ip_olt):
                 if not serial:
                     continue
 
-                # Verificar se o serial está na lista de não autorizados
                 if serial in unauth_dict:
                     try:
                         slot, pon = unauth_dict[serial]
                         name = item.get('name', 'CLIENTE').strip()
-
                         vlan = vlan_lookup.get((slot, pon))
                         if not vlan:
                             raise Exception(f"VLAN não encontrada para slot {slot} e PON {pon}")
@@ -771,7 +760,6 @@ def mass_migration_nokia(ip_olt):
                             serial_tl1 = format_tl1_serial(serial)
 
                             conexao.terminate()
-                            logger.info("Finalizada sessão SSH")
                             conexao_tl1 = login_olt_tl1(host=ip_olt)
                             logger.info("Iniciada sessão TL1")
 
@@ -793,15 +781,20 @@ def mass_migration_nokia(ip_olt):
 
                             conexao_tl1.terminate()
                             conexao = login_olt_ssh(host=ip_olt)
+
                         else:
                             serial_ssh = format_ssh_serial(serial)
                             desc2 = "Bridge"
-
                             add_to_pon(conexao, slot, pon, position, serial_ssh, name, desc2)
                             time.sleep(10)
 
-                            model = onu_model(conexao, slot, pon, position)
-                            logger.info(f"Modelo da ONU detectado: {model}")
+                            # Aqui entra a verificação: usar model do CSV se disponível
+                            model = item.get('model', '').strip()
+                            if not model:
+                                model = onu_model(conexao, slot, pon, position)
+                                logger.info(f"Modelo detectado automaticamente: {model}")
+                            else:
+                                logger.info(f"Modelo informado via CSV: {model}")
 
                             model_group01 = {"TX-6610", "R1v2", "XZ000-G3", "Fiberlink100"}
                             model_group02 = {"AN5506-01-A", "PON110_V3.0", "RTL9602C", "DM985-100", "HG8310M", "110Gb", "SH901"}
@@ -811,7 +804,7 @@ def mass_migration_nokia(ip_olt):
                             elif model in model_group02:
                                 auth_group02_ssh(conexao, slot, pon, position, vlan)
                             else:
-                                logger.warning(f"Modelo incompatível: {model}. Excluindo ONU/ONT.")
+                                logger.warning(f"Modelo incompatível: {model}. Excluindo ONU.")
                                 unauthorized(conexao, serial_ssh, slot, pon, position)
                                 raise Exception(f"Modelo {model} não compatível")
 
@@ -824,7 +817,6 @@ def mass_migration_nokia(ip_olt):
                             'vlan': vlan,
                             'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         })
-
                         already_processed[serial] = 'migrated'
                         algum_migrado_nesse_ciclo = True
 
@@ -844,7 +836,6 @@ def mass_migration_nokia(ip_olt):
                 logger.info("Nenhuma ONU migrada nesse ciclo. Encerrando tentativas.")
                 break
 
-        # Escrever arquivos finais
         if migrated_onus:
             with open('csv/migrated.csv', mode='w', newline='') as csvfile:
                 fieldnames = ['serial', 'slot', 'pon', 'position', 'name', 'vlan', 'timestamp']
@@ -874,6 +865,7 @@ def mass_migration_nokia(ip_olt):
         if conexao_tl1:
             conexao_tl1.terminate()
         logger.info("Processo de migração em massa finalizado")
+
 
 def list_onu_csv_nokia(ip_olt):
     slot = input("Digite o CARD: ")
@@ -906,3 +898,4 @@ def list_onu_csv_nokia(ip_olt):
                 logger.info("Conexão encerrada com a OLT")
             except Exception as e:
                 logger.warning(f"Erro ao encerrar a sessão com a OLT: {str(e)}")
+
