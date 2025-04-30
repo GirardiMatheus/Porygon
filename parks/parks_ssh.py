@@ -55,7 +55,6 @@ def login_ssh(host=None):
         print(error_msg)
         return None
 
-
 def list_unauthorized(child):
     try:
         # Envia o comando e captura a saída
@@ -380,7 +379,7 @@ def auth_router_default(child, serial, nome, vlan, pon, profile, login_pppoe, se
         error_msg = f"Falha ao autorizar ONU {serial}: {str(e)}"
         logger.error(error_msg)
         return False
-          
+
 def auth_router_121AC(child, serial, pon, nome, profile, vlan):
     try:
         logger.info(f"Iniciando autenticação 121AC para ONU {serial} na PON {pon} - Nome: {nome}, Perfil: {profile}, VLAN: {vlan}")

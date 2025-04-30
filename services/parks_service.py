@@ -205,7 +205,6 @@ def onu_list(ip_olt):
 def unauthorized_complete(ip_olt):
     conexao = None
     try:
-        # 1. Conexão SSH
         logger.info(f"Iniciando processo para desautorizar ONU na OLT {ip_olt}")
         conexao = login_ssh(host=ip_olt)
         if not conexao:
@@ -213,7 +212,6 @@ def unauthorized_complete(ip_olt):
             logger.error("Conexão SSH falhou")
             return False
 
-        # 2. Consulta ONU
         serial = input("Qual o serial da ONU? ").strip().lower()
         logger.info(f"Serial informado: {serial}")
         
@@ -229,11 +227,9 @@ def unauthorized_complete(ip_olt):
             logger.error("Dados da PON não encontrados")
             return False
 
-        # Formata PON (extrai apenas o número)
         pon_numero = pon.split('/')[-1] if '/' in pon else pon
         logger.info(f"Dados obtidos - Serial: {serial}, PON: {pon_numero}")
 
-        # 3. Reboot
         logger.info(f"Iniciando reboot da ONU {serial}")
         if not reboot(conexao, pon_numero, serial):
             print("Falha no reboot da ONU")
@@ -243,7 +239,6 @@ def unauthorized_complete(ip_olt):
         print("ONU reiniciada com sucesso, aguardando 10 segundos...")
         time.sleep(10)  
 
-        # 4. Desautorização
         logger.info(f"Iniciando desautorização da ONU {serial}")
         if not unauthorized(conexao, pon_numero, serial):
             print("Falha na desautorização da ONU")
@@ -261,7 +256,6 @@ def unauthorized_complete(ip_olt):
         return False
 
     finally:
-        # 5. Encerra conexão
         if conexao:
             logger.info("Encerrando conexão SSH")
             conexao.terminate()
@@ -289,7 +283,6 @@ def consult_information_complete(ip_olt):
             logger.warning(msg)
             return
             
-        # Extrai dados
         model = dados_onu.get('model', 'N/A')
         alias = dados_onu.get('alias', 'N/A')
         power_level = dados_onu.get('power_level', 'N/A')
@@ -299,7 +292,6 @@ def consult_information_complete(ip_olt):
             pon = pon.split('/')[-1]  
         status = dados_onu.get('status', 'N/A')
         
-        # Prepara e exibe informações formatadas
         info_formatada = (
             f"\n=== Informações da ONU {serial} ===\n"
             f"Modelo: {model}\n"
@@ -327,7 +319,6 @@ def consult_information_complete(ip_olt):
 def reboot_complete(ip_olt):
     conexao = None
     try:
-        # 1. Conexão SSH
         logger.info(f"Iniciando processo para desautorizar ONU na OLT {ip_olt}")
         conexao = login_ssh(host=ip_olt)
         if not conexao:
@@ -335,7 +326,6 @@ def reboot_complete(ip_olt):
             logger.error("Conexão SSH falhou")
             return False
 
-        # 2. Consulta ONU
         serial = input("Qual o serial da ONU? ").strip().lower()
         logger.info(f"Serial informado: {serial}")
         
@@ -351,11 +341,9 @@ def reboot_complete(ip_olt):
             logger.error("Dados da PON não encontrados")
             return False
 
-        # Formata PON (extrai apenas o número)
         pon_numero = pon.split('/')[-1] if '/' in pon else pon
         logger.info(f"Dados obtidos - Serial: {serial}, PON: {pon_numero}")
 
-        # 3. Reboot
         logger.info(f"Iniciando reboot da ONU {serial}")
         if not reboot(conexao, pon_numero, serial):
             print("Falha no reboot da ONU")
