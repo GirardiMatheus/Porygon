@@ -798,7 +798,7 @@ def unauthorized(child, pon, serial):
         error_msg = f"Erro ao desautorizar ONU {serial}: {str(e)}"
         logger.error(error_msg)
         return False
-    
+
 def reboot(child, pon, serial):
     try:
         logger.info(f"Iniciando reboot da ONU {serial} na PON {pon}")

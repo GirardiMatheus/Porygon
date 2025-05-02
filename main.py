@@ -99,8 +99,9 @@ def handle_vendor_menu(manager, vendor):
             '6': ("Lista de modelos compatíveis", list_of_compatible_models_nokia),
             '7': ("Habilitar acesso remoto pela WAN", grant_remote_access_wan_complete),
             '8': ("Configurar WIFI", configure_wifi),
-            '9': ("Migração em massa", mass_migration_nokia),
-            '10': ("Criar csv para migração ou divisão de PON", list_onu_csv_nokia),
+            '9': ("Listar ONU na PON", list_pon_nokia),
+            '10': ("Migração em massa", mass_migration_nokia),
+            '11': ("Criar csv para migração ou divisão de PON", list_onu_csv_nokia),
             '0': ("Voltar ao menu anterior", None)
         }
     }

@@ -37,8 +37,8 @@ def login_olt_tl1(host):
         
         # Conexão TL1
         child = pexpect.spawn(f"ssh {tl1_user}@{host} -p {tl1_port}", 
-                              encoding='utf-8', 
-                              timeout=30)
+                                encoding='utf-8', 
+                                timeout=30)
 
         # Verifica resposta do SSH
         index = child.expect([
@@ -99,8 +99,8 @@ def auth_bridge_tl1(child, serial, vlan, name, slot, pon, position, desc2):
 
         # Autorizar ONT
         cmd = (f'ENT-ONT::ONT-1-1-{slot}-{pon}-{position}::::DESC1="{name}",DESC2="{desc2}",'
-               f'SERNUM={serial},PLNDVAR=BRG,SWVERPLND=AUTO,DLSW=AUTO,PLNDCFGFILE1=AUTO,'
-               f'DLCFGFILE1=AUTO,OPTICSHIST=ENABLE,VOIPALLOWED=VEIP;')
+                f'SERNUM={serial},PLNDVAR=BRG,SWVERPLND=AUTO,DLSW=AUTO,PLNDCFGFILE1=AUTO,'
+                f'DLCFGFILE1=AUTO,OPTICSHIST=ENABLE,VOIPALLOWED=VEIP;')
         logger.info(f"Enviando comando de autorização: {cmd}")
         child.sendline(cmd)
         child.expect("COMPLD", timeout=10)
@@ -164,7 +164,7 @@ def auth_router_tl1(child, vlan, name, desc2, user_pppoe, password_pppoe, slot, 
         logger.info(f"Iniciando provisionamento da ONT: Slot={slot}, PON={pon}, Posição={position}, Serial={serial_tl1}")
 
         cmd = (f'ENT-ONT::ONT-1-1-{slot}-{pon}-{position}::::DESC1="{name}",DESC2="{desc2}",SERNUM={serial_tl1},'
-               'PLNDVAR=VEIP_SIP,SWVERPLND=AUTO,DLSW=AUTO,PLNDCFGFILE1=AUTO,DLCFGFILE1=AUTO,OPTICSHIST=ENABLE,VOIPALLOWED=VEIP;')
+                'PLNDVAR=VEIP_SIP,SWVERPLND=AUTO,DLSW=AUTO,PLNDCFGFILE1=AUTO,DLCFGFILE1=AUTO,OPTICSHIST=ENABLE,VOIPALLOWED=VEIP;')
 
         logger.info(f"Enviando comando de criação da ONT: {cmd}")
         child.sendline(cmd)
