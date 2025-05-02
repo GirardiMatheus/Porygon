@@ -287,8 +287,8 @@ def grant_remote_access_wan_complete(ip_olt):
         if not grant_remote_access_wan(conexao_tl1, slot, pon, position, password):
             logger.warning("Falha ao ativar acesso remoto, tentando corrigir.")
         print("Habilitado acesso remoto na porta 8080 com sucesso. \
-              \nUtilize o protocolo http:// seguido do IP adquirido na conexão WAN e, :8080\
-              \nUtilize o usuário de acesso padrão AdminGPON e a nova senha configurada")
+                \nUtilize o protocolo http:// seguido do IP adquirido na conexão WAN e, :8080\
+                \nUtilize o usuário de acesso padrão AdminGPON e a nova senha configurada")
         logger.info("Sucesso ao alterar senha de acesso remoto.")
     except Exception as e:
         logger.error(f"Erro durante consulta: {str(e)}", exc_info=True)
@@ -866,7 +866,6 @@ def mass_migration_nokia(ip_olt):
             conexao_tl1.terminate()
         logger.info("Processo de migração em massa finalizado")
 
-
 def list_onu_csv_nokia(ip_olt):
     slot = input("Digite o CARD: ")
     pon = input("Digite a PON: ")
@@ -885,6 +884,33 @@ def list_onu_csv_nokia(ip_olt):
             print("✅ Lista de ONUs salva com sucesso.")
         else:
             print("⚠️ Nenhuma ONU listada ou falha ao salvar o CSV.")
+
+    except Exception as e:
+        logger.error(f"Erro durante o processo de listagem: {str(e)}", exc_info=True)
+        print("❌ Erro ao executar o processo de listagem de ONUs.")
+
+    finally:
+        if conexao:
+            try:
+                conexao.sendline("logout")
+                conexao.expect(pexpect.EOF)
+                logger.info("Conexão encerrada com a OLT")
+            except Exception as e:
+                logger.warning(f"Erro ao encerrar a sessão com a OLT: {str(e)}")
+
+def list_pon_nokia(ip_olt):
+    slot = input("Digite o CARD: ")
+    pon = input("Digite a PON: ")
+    conexao = None
+
+    try:
+        # Conexão SSH
+        logger.info(f"Conectando à OLT {ip_olt} para listagem de ONUs")
+        conexao = login_olt_ssh(host=ip_olt)
+        logger.info("Conexão SSH estabelecida com sucesso")
+
+        # Execução da função de listagem
+        sucess = list_pon(conexao, slot, pon)
 
     except Exception as e:
         logger.error(f"Erro durante o processo de listagem: {str(e)}", exc_info=True)

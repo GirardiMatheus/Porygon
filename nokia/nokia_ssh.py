@@ -1,4 +1,5 @@
 import pexpect
+import asyncio
 import os
 import time
 import re
@@ -8,6 +9,10 @@ from dotenv import load_dotenv
 from utils.log import get_logger
 from ast import List
 from typing import List, Tuple
+from textual.app import App, ComposeResult
+from textual.widgets import DataTable, Header, Footer
+from textual.reactive import reactive
+from rich.text import Text
 
 logger = get_logger(__name__)
 logger.info("Sistema iniciado")
@@ -17,6 +22,26 @@ load_dotenv()
 ssh_user = os.getenv('SSH_USER')
 ssh_password = os.getenv('SSH_PASSWORD')
 port = os.getenv('PORT')
+
+class ONUListApp(App):
+    # CSS_PATH = "style.css"  # opcional
+
+    def __init__(self, data, **kwargs):
+        super().__init__(**kwargs)
+        self.onu_data = data
+
+    def compose(self) -> ComposeResult:
+        yield Header()
+        yield Footer()
+        self.table = DataTable()
+        yield self.table
+
+    def on_mount(self):
+        self.table.add_columns("Posição", "Serial", "Nome", "Modo", "Admin", "Operacional", "RX Signal")
+        for row in self.onu_data:
+            admin = Text(row[4], style="green" if row[4].lower() == "up" else "red")
+            oper = Text(row[5], style="green" if row[5].lower() == "up" else "red")
+            self.table.add_row(row[0], row[1], row[2], row[3], admin, oper, row[6])
 
 def login_olt_ssh(host=None):
     """Estabelece conexão SSH com a OLT"""
@@ -204,8 +229,8 @@ def add_to_pon(child, slot, pon, position, serial, name, desc2):
     try:
         # Provisionamento inicial
         cmd = (f"configure equipment ont interface 1/1/{slot}/{pon}/{position} "
-               f"sernum {serial} sw-ver-pland disabled desc1 \"{name}\" "
-               f"desc2 \"{desc2}\" optics-hist enable")
+                f"sernum {serial} sw-ver-pland disabled desc1 \"{name}\" "
+                f"desc2 \"{desc2}\" optics-hist enable")
         child.sendline(cmd)
         logger.info(f"Enviando comando de provisionamento: {cmd}")
         child.expect(r"\$")  # Espera pelo prompt $
@@ -475,4 +500,51 @@ def list_onu(child, slot, pon):
     except Exception as e:
         logger.error(f"Erro inesperado: {e}", exc_info=True)
         print("❌ Erro inesperado ao listar ONUs")
+        return False
+
+def list_pon(child, slot, pon):
+    try:
+        print(f"Iniciando listagem da PON 1/1/{slot}/{pon}")
+        child.sendline(f"show equipment ont status pon 1/1/{slot}/{pon} xml")
+        time.sleep(5)
+        child.expect("#", timeout=15)
+        output = child.before
+
+        start_index = output.find("<?xml")
+        end_index = output.find("</runtime-data>") + len("</runtime-data>")
+        if start_index == -1 or end_index == -1:
+            print("❌ XML não encontrado ou incompleto")
+            return False
+
+        xml_content = output[start_index:end_index]
+
+        root = ET.fromstring(xml_content)
+        data = []
+
+        for instance in root.findall(".//instance"):
+            ont_id = instance.findtext(".//res-id[@name='ont']")
+            position = ont_id.split('/')[-1] if ont_id else ""
+            serial = instance.findtext(".//info[@name='sernum']", default="").replace(":", "")
+            name = instance.findtext(".//info[@name='desc1']", default="").replace('"', '').strip()
+            modo = instance.findtext(".//info[@name='desc2']", default="").strip()
+            admin_status = instance.findtext(".//info[@name='admin-status']", default="").strip()
+            oper_status = instance.findtext(".//info[@name='oper-status']", default="").strip()
+            rx_signal = instance.findtext(".//info[@name='olt-rx-sig-level(dbm)']", default="").strip()
+
+            if not serial or serial.lower() == "undefined":
+                continue
+
+            data.append([position, serial, name, modo, admin_status, oper_status, rx_signal])
+
+        if not data:
+            print(f"⚠️ Nenhuma ONU encontrada na PON 1/1/{slot}/{pon}")
+            return False
+
+        # Rodar o app Textual com os dados
+        ONUListApp(data).run()
+
+        return True
+
+    except Exception as e:
+        print(f"❌ Erro: {e}")
         return False
