@@ -24,8 +24,6 @@ ssh_password = os.getenv('SSH_PASSWORD')
 port = os.getenv('PORT')
 
 class ONUListApp(App):
-    # CSS_PATH = "style.css"  # opcional
-
     def __init__(self, data, **kwargs):
         super().__init__(**kwargs)
         self.onu_data = data
@@ -37,11 +35,12 @@ class ONUListApp(App):
         yield self.table
 
     def on_mount(self):
-        self.table.add_columns("Posição", "Serial", "Nome", "Modo", "Admin", "Operacional", "RX Signal")
+        self.table.add_columns("Posição", "Serial", "Nome", "Modo", "Admin", "Operacional", "RX (dBm)", "Temperatura (°C)")
         for row in self.onu_data:
             admin = Text(row[4], style="green" if row[4].lower() == "up" else "red")
             oper = Text(row[5], style="green" if row[5].lower() == "up" else "red")
-            self.table.add_row(row[0], row[1], row[2], row[3], admin, oper, row[6])
+            self.table.add_row(row[0], row[1], row[2], row[3], admin, oper, row[6], row[7])
+
 
 def login_olt_ssh(host=None):
     """Estabelece conexão SSH com a OLT"""
@@ -502,12 +501,16 @@ def list_onu(child, slot, pon):
         print("❌ Erro inesperado ao listar ONUs")
         return False
 
+import re
+import time
+import xml.etree.ElementTree as ET
+
 def list_pon(child, slot, pon):
     try:
         print(f"Iniciando listagem da PON 1/1/{slot}/{pon}")
         child.sendline(f"show equipment ont status pon 1/1/{slot}/{pon} xml")
         time.sleep(5)
-        child.expect("#", timeout=15)
+        child.expect("#", timeout=30)
         output = child.before
 
         start_index = output.find("<?xml")
@@ -517,7 +520,6 @@ def list_pon(child, slot, pon):
             return False
 
         xml_content = output[start_index:end_index]
-
         root = ET.fromstring(xml_content)
         data = []
 
@@ -529,22 +531,41 @@ def list_pon(child, slot, pon):
             modo = instance.findtext(".//info[@name='desc2']", default="").strip()
             admin_status = instance.findtext(".//info[@name='admin-status']", default="").strip()
             oper_status = instance.findtext(".//info[@name='oper-status']", default="").strip()
-            rx_signal = instance.findtext(".//info[@name='olt-rx-sig-level(dbm)']", default="").strip()
 
             if not serial or serial.lower() == "undefined":
                 continue
 
-            data.append([position, serial, name, modo, admin_status, oper_status, rx_signal])
+            # Coletar info óptica individualmente
+            try:
+                # Limpa buffer
+                try:
+                    child.read_nonblocking(size=1024, timeout=1)
+                except:
+                    pass
+
+                child.sendline(f"show equipment ont optics 1/1/{slot}/{pon}/{position} detail")
+                child.expect([r"#", pexpect.TIMEOUT], timeout=30)
+                optics_output = child.before
+
+                match = re.search(r"rx-signal-level\s*:\s*(-\d+\.\d{2}).*?ont-temperature\s*:\s*(\d{2})", optics_output, re.DOTALL)
+                rx_signal = match.group(1) if match else "N/A"
+                temperature = match.group(2) if match else "N/A"
+
+            except Exception as optics_err:
+                print(f"⚠️ Falha ao obter óticos da ONU {position}: {optics_err}")
+                rx_signal = "Erro"
+                temperature = "Erro"
+
+            print(f"✅ ONU {position}")
+            data.append([position, serial, name, modo, admin_status, oper_status, rx_signal, temperature])
 
         if not data:
             print(f"⚠️ Nenhuma ONU encontrada na PON 1/1/{slot}/{pon}")
             return False
 
-        # Rodar o app Textual com os dados
         ONUListApp(data).run()
-
         return True
 
     except Exception as e:
-        print(f"❌ Erro: {e}")
+        print(f"❌ Erro geral: {e}")
         return False
