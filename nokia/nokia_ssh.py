@@ -35,11 +35,11 @@ class ONUListApp(App):
         yield self.table
 
     def on_mount(self):
-        self.table.add_columns("Posição", "Serial", "Nome", "Modo", "Admin", "Operacional", "RX (dBm)", "Temperatura (°C)")
+        self.table.add_columns("Posição", "Serial", "Nome", "Modo", "Admin", "Operacional", "RX (dBm)", "Temperatura (°C)", "distance(km)")
         for row in self.onu_data:
             admin = Text(row[4], style="green" if row[4].lower() == "up" else "red")
             oper = Text(row[5], style="green" if row[5].lower() == "up" else "red")
-            self.table.add_row(row[0], row[1], row[2], row[3], admin, oper, row[6], row[7])
+            self.table.add_row(row[0], row[1], row[2], row[3], admin, oper, row[6], row[7], row[8])
 
 
 def login_olt_ssh(host=None):
@@ -531,6 +531,7 @@ def list_pon(child, slot, pon):
             modo = instance.findtext(".//info[@name='desc2']", default="").strip()
             admin_status = instance.findtext(".//info[@name='admin-status']", default="").strip()
             oper_status = instance.findtext(".//info[@name='oper-status']", default="").strip()
+            distance = instance.findtext(".//info[@name='ont-olt-distance(km)']", default="").strip()
 
             if not serial or serial.lower() == "undefined":
                 continue
@@ -557,7 +558,7 @@ def list_pon(child, slot, pon):
                 temperature = "Erro"
 
             print(f"✅ ONU {position}")
-            data.append([position, serial, name, modo, admin_status, oper_status, rx_signal, temperature])
+            data.append([position, serial, name, modo, admin_status, oper_status, rx_signal, temperature, distance])
 
         if not data:
             print(f"⚠️ Nenhuma ONU encontrada na PON 1/1/{slot}/{pon}")
