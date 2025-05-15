@@ -318,6 +318,7 @@ def auth_group01_ssh(child, slot, pon, position, vlan):
         (f"configure bridge port 1/1/{slot}/{pon}/{position}/1/1 vlan-id {vlan} tag untagged", "$", "Atribuir VLAN à porta bridge (untagged)"),
         ("exit all", "#", "Sair do modo de configuração"),
         (f"configure bridge port 1/1/{slot}/{pon}/{position}/1/1 pvid {vlan}", "#", "Definir PVID na porta bridge"),
+        ("pvid-tagging-flag onu", "#", "Configurar pvid-tagging-flag para ONU"),
     ]
 
     for cmd, prompt, descricao in comandos:

@@ -190,7 +190,6 @@ def reboot_complete_nokia(ip_olt):
             print("❌ Falha ao reiniciar ONU")
         else:
             logger.info("Reboot solicitado com sucesso")
-            print("✅ Comando de reboot enviado com sucesso")
             
     except Exception as e:
         logger.error(f"Erro durante reboot: {str(e)}", exc_info=True)
@@ -637,9 +636,9 @@ def provision_nokia(ip_olt):
                 return
             
             # model_group01 não recebe o comando pvid-tagging-flag olt ao final do provisionamento
-            model_group01 = {"TX-6610", "R1v2", "XZ000-G3", "Fiberlink100"}
+            model_group01 = {"TX-6610", "R1v2", "XZ000-G3", "Fiberlink100", "AN5506-01-A"}
             # model_group02 recebe o comando pvid-tagging-flag olt ao final do provisionamento
-            model_group02 = {"AN5506-01-A", "PON110_V3.0", "RTL9602C", "DM985-100", "HG8310M", "110Gb", "SH901"}
+            model_group02 = {"PON110_V3.0", "RTL9602C", "DM985-100", "HG8310M", "110Gb", "SH901",}
 
             if model in model_group01:
                 try:
@@ -796,7 +795,7 @@ def mass_migration_nokia(ip_olt):
                             else:
                                 logger.info(f"Modelo informado via CSV: {model}")
 
-                            model_group01 = {"TX-6610", "R1v2", "XZ000-G3", "Fiberlink100"}
+                            model_group01 = {"TX-6610", "R1v2", "XZ000-G3", 'XZ000-G7', "Fiberlink100"}
                             model_group02 = {"AN5506-01-A", "PON110_V3.0", "RTL9602C", "DM985-100", "HG8310M", "110Gb", "SH901"}
 
                             if model in model_group01:
