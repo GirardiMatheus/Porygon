@@ -538,10 +538,6 @@ def list_onu(child, slot, pon):
         print("❌ Erro inesperado ao listar ONUs")
         return False
 
-import re
-import time
-import xml.etree.ElementTree as ET
-
 def list_pon(child, slot, pon):
     try:
         print(f"Iniciando listagem da PON 1/1/{slot}/{pon}")
