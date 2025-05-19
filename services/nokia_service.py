@@ -636,9 +636,11 @@ def provision_nokia(ip_olt):
                 return
             
             # model_group01 não recebe o comando pvid-tagging-flag olt ao final do provisionamento
-            model_group01 = {"TX-6610", "R1v2", "XZ000-G3", "Fiberlink100", "AN5506-01-A"}
+            model_group01 = {"TX-6610", "R1v2", "XZ000-G3", "Fiberlink100"}
             # model_group02 recebe o comando pvid-tagging-flag olt ao final do provisionamento
             model_group02 = {"PON110_V3.0", "RTL9602C", "DM985-100", "HG8310M", "110Gb", "SH901",}
+            # model_group03 recebe conabdo de perfil QOS down
+            model_group03 = {"XZ000-G7", "AN5506-01-A"}
 
             if model in model_group01:
                 try:
@@ -652,6 +654,15 @@ def provision_nokia(ip_olt):
             elif model in model_group02:
                 try:
                     auth_group02_ssh(conexao, slot, pon, position, vlan)
+                    logger.info("Provisionamento concluído com sucesso!")
+                    print("Provisionamento concluído com sucesso!")
+                except Exception as e:
+                    logger.error(f"Erro no provisionamento: {str(e)}")
+                    print(f"Erro no provisionamento: {str(e)}")
+            
+            elif model in model_group03:
+                try:
+                    auth_group03_ssh(conexao, slot, pon, position, vlan)
                     logger.info("Provisionamento concluído com sucesso!")
                     print("Provisionamento concluído com sucesso!")
                 except Exception as e:

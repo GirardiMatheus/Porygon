@@ -369,6 +369,42 @@ def auth_group02_ssh(child, slot, pon, position, vlan):
     logger.info("Configuração do grupo 02 concluída com sucesso.")
     return True
 
+def auth_group03_ssh(child, slot, pon, position, vlan):
+    logger.info("Iniciando autorização do grupo 02 via SSH")
+    
+    try:
+        time.sleep(3)
+    except Exception as e:
+        logger.warning(f"Problema ao aguardar: {e}")
+
+    comandos = [
+        (f"configure qos interface ont:1/1/{slot}/{pon}/{position} ds-queue-sharing", "$", "Configurar qos da ONT"),
+        ("exit all", "#", "Sair do modo de configuração"),
+        (f"configure equipment ont slot 1/1/{slot}/{pon}/{position}/1 plndnumdataports 1 plndnumvoiceports 0 planned-card-type ethernet admin-state up", "$", "Configurar slot da ONT"),
+        (f"configure interface port uni:1/1/{slot}/{pon}/{position}/1/1 admin-up", "#", "Habilitar porta UNI"),
+        (f"configure qos interface 1/1/{slot}/{pon}/{position}/1/1 upstream-queue 0 bandwidth-profile name:HSI_1G_UP", "#", "Configurar QoS na porta UNI"),
+        (f"configure qos interface 1/1/{slot}/{pon}/{position} queue 0 shaper-profile name:HSI_1G_DOWN", "#", "Configurar QoS na porta UNI"),
+        ("exit all", "#", "Sair do modo de configuração"),
+        (f"configure bridge port 1/1/{slot}/{pon}/{position}/1/1 max-unicast-mac 10", "$", "Configurar limite de MACs na bridge"),
+        (f"configure bridge port 1/1/{slot}/{pon}/{position}/1/1 vlan-id {vlan} tag untagged", "$", "Atribuir VLAN à porta bridge (untagged)"),
+        ("exit all", "#", "Sair do modo de configuração"),
+        (f"configure bridge port 1/1/{slot}/{pon}/{position}/1/1 pvid {vlan}", "#", "Definir PVID na porta bridge"),
+    ]
+
+    for cmd, prompt, descricao in comandos:
+        try:
+            child.sendline(cmd)
+            logger.info(f"Enviando comando: {descricao} -> {cmd}")
+            child.expect(prompt, timeout=5)
+            logger.info(f"Comando concluído com sucesso: {descricao}")
+        except Exception as e:
+            logger.error(f"Erro ao executar comando '{descricao}': {e}")
+            print(f"Houve um problema durante: {descricao}")
+            return False
+
+    logger.info("Configuração do grupo 02 concluída com sucesso.")
+    return True
+
 def unauthorized(child, serial_ssh, slot, pon, position):
     try:
         logger.info(f"Iniciando desautorização da ONU {serial_ssh}")
