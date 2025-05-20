@@ -35,11 +35,11 @@ class ONUListApp(App):
         yield self.table
 
     def on_mount(self):
-        self.table.add_columns("Posição", "Serial", "Nome", "Modo", "Admin", "Operacional", "RX (dBm)", "Temperatura (°C)")
+        self.table.add_columns("Posição", "Serial", "Nome", "Modo", "Admin", "Operacional", "RX (dBm)", "Temperatura (°C)", "distance(km)")
         for row in self.onu_data:
             admin = Text(row[4], style="green" if row[4].lower() == "up" else "red")
             oper = Text(row[5], style="green" if row[5].lower() == "up" else "red")
-            self.table.add_row(row[0], row[1], row[2], row[3], admin, oper, row[6], row[7])
+            self.table.add_row(row[0], row[1], row[2], row[3], admin, oper, row[6], row[7], row[8])
 
 
 def login_olt_ssh(host=None):
@@ -318,6 +318,7 @@ def auth_group01_ssh(child, slot, pon, position, vlan):
         (f"configure bridge port 1/1/{slot}/{pon}/{position}/1/1 vlan-id {vlan} tag untagged", "$", "Atribuir VLAN à porta bridge (untagged)"),
         ("exit all", "#", "Sair do modo de configuração"),
         (f"configure bridge port 1/1/{slot}/{pon}/{position}/1/1 pvid {vlan}", "#", "Definir PVID na porta bridge"),
+        ("pvid-tagging-flag onu", "#", "Configurar pvid-tagging-flag para ONU"),
     ]
 
     for cmd, prompt, descricao in comandos:
@@ -352,6 +353,42 @@ def auth_group02_ssh(child, slot, pon, position, vlan):
         ("exit all", "#", "Sair do modo de configuração"),
         (f"configure bridge port 1/1/{slot}/{pon}/{position}/1/1 pvid {vlan}", "#", "Definir PVID na porta bridge"),
         ("pvid-tagging-flag olt", "#", "Configurar pvid-tagging-flag para OLT"),
+    ]
+
+    for cmd, prompt, descricao in comandos:
+        try:
+            child.sendline(cmd)
+            logger.info(f"Enviando comando: {descricao} -> {cmd}")
+            child.expect(prompt, timeout=5)
+            logger.info(f"Comando concluído com sucesso: {descricao}")
+        except Exception as e:
+            logger.error(f"Erro ao executar comando '{descricao}': {e}")
+            print(f"Houve um problema durante: {descricao}")
+            return False
+
+    logger.info("Configuração do grupo 02 concluída com sucesso.")
+    return True
+
+def auth_group03_ssh(child, slot, pon, position, vlan):
+    logger.info("Iniciando autorização do grupo 02 via SSH")
+    
+    try:
+        time.sleep(3)
+    except Exception as e:
+        logger.warning(f"Problema ao aguardar: {e}")
+
+    comandos = [
+        (f"configure qos interface ont:1/1/{slot}/{pon}/{position} ds-queue-sharing", "$", "Configurar qos da ONT"),
+        ("exit all", "#", "Sair do modo de configuração"),
+        (f"configure equipment ont slot 1/1/{slot}/{pon}/{position}/1 plndnumdataports 1 plndnumvoiceports 0 planned-card-type ethernet admin-state up", "$", "Configurar slot da ONT"),
+        (f"configure interface port uni:1/1/{slot}/{pon}/{position}/1/1 admin-up", "#", "Habilitar porta UNI"),
+        (f"configure qos interface 1/1/{slot}/{pon}/{position}/1/1 upstream-queue 0 bandwidth-profile name:HSI_1G_UP", "#", "Configurar QoS na porta UNI"),
+        (f"configure qos interface 1/1/{slot}/{pon}/{position} queue 0 shaper-profile name:HSI_1G_DOWN", "#", "Configurar QoS na porta UNI"),
+        ("exit all", "#", "Sair do modo de configuração"),
+        (f"configure bridge port 1/1/{slot}/{pon}/{position}/1/1 max-unicast-mac 10", "$", "Configurar limite de MACs na bridge"),
+        (f"configure bridge port 1/1/{slot}/{pon}/{position}/1/1 vlan-id {vlan} tag untagged", "$", "Atribuir VLAN à porta bridge (untagged)"),
+        ("exit all", "#", "Sair do modo de configuração"),
+        (f"configure bridge port 1/1/{slot}/{pon}/{position}/1/1 pvid {vlan}", "#", "Definir PVID na porta bridge"),
     ]
 
     for cmd, prompt, descricao in comandos:
@@ -501,10 +538,6 @@ def list_onu(child, slot, pon):
         print("❌ Erro inesperado ao listar ONUs")
         return False
 
-import re
-import time
-import xml.etree.ElementTree as ET
-
 def list_pon(child, slot, pon):
     try:
         print(f"Iniciando listagem da PON 1/1/{slot}/{pon}")
@@ -531,6 +564,7 @@ def list_pon(child, slot, pon):
             modo = instance.findtext(".//info[@name='desc2']", default="").strip()
             admin_status = instance.findtext(".//info[@name='admin-status']", default="").strip()
             oper_status = instance.findtext(".//info[@name='oper-status']", default="").strip()
+            distance = instance.findtext(".//info[@name='ont-olt-distance(km)']", default="").strip()
 
             if not serial or serial.lower() == "undefined":
                 continue
@@ -557,7 +591,7 @@ def list_pon(child, slot, pon):
                 temperature = "Erro"
 
             print(f"✅ ONU {position}")
-            data.append([position, serial, name, modo, admin_status, oper_status, rx_signal, temperature])
+            data.append([position, serial, name, modo, admin_status, oper_status, rx_signal, temperature, distance])
 
         if not data:
             print(f"⚠️ Nenhuma ONU encontrada na PON 1/1/{slot}/{pon}")
