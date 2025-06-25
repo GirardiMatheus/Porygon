@@ -32,6 +32,17 @@
 
 ---
 
+## ⚙️ Instalação
+
+- Confira se tem a pasta CSV, com os arquivos necessário;
+- Instale as bibliotecas necessárias
+  ```bash
+    pip insrall -r requirements
+  ```
+- Troque o .env de exemplo, pelo fornecido pela equipe 
+
+---
+
 ## 🛠️ Em desenvolvimento
 
 - Suporte completo à linha **Nokia**

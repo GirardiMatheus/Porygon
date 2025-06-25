@@ -175,7 +175,17 @@ cython_debug/
 
 # Local LOG file
 OLT_LOG.log
+__main__log.log
+nokia_nokia_ssh_log.log
+nokia_nokia_tl1_log.log
+parks_parks_ssh_log.log
+services_nokia_service_log.log
+services_parks_service_log.log
+logs/
 
 # CSV
 csv/parks.csv
 parks.csv
+migration.csv
+migrated.csv
+nokia.csv
