@@ -7,6 +7,7 @@ import os
 import time
 import re
 import csv
+import pyperclip
 import xml.etree.ElementTree as ET
 from typing import List, Tuple, Optional, Dict, Any
 from contextlib import contextmanager
@@ -17,6 +18,7 @@ from utils.log import get_logger
 from textual.app import App, ComposeResult
 from textual.widgets import DataTable, Header, Footer
 from rich.text import Text
+
 
 # Constants
 DEFAULT_TIMEOUT = 10
@@ -42,6 +44,7 @@ class ONUListApp(App):
     def __init__(self, data, **kwargs):
         super().__init__(**kwargs)
         self.onu_data = data
+        self.copied_text = None
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -55,6 +58,41 @@ class ONUListApp(App):
             admin = Text(row[4], style="green" if row[4].lower() == "up" else "red")
             oper = Text(row[5], style="green" if row[5].lower() == "up" else "red")
             self.table.add_row(row[0], row[1], row[2], row[3], admin, oper, row[6], row[7], row[8])
+        
+        # Adiciona instruções no rodapé
+        self.sub_title = "Use teclas de seta para navegar. Pressione Enter para copiar o valor da célula. Pressione Esc para sair."
+        
+    def on_data_table_cell_selected(self, event):
+        """Manipula o evento de seleção de célula"""
+        # Obtém o valor da célula selecionada
+        row, col = event.coordinate
+        value = self.table.get_cell_at(event.coordinate)
+        
+        if isinstance(value, Text):
+            value = value.plain
+        
+        # Armazena o texto copiado
+        self.copied_text = str(value)
+        
+        # Copia para a área de transferência (requer pyperclip)
+        try:
+            import pyperclip
+            pyperclip.copy(self.copied_text)
+            self.notify(f"Copiado: {self.copied_text}", timeout=2)
+        except ImportError:
+            self.notify(f"Selecionado: {self.copied_text} (instale pyperclip para cópia automática)", timeout=3)
+        
+    def on_key(self, event):
+        """Manipula eventos de tecla"""
+        if event.key == "c" and event.ctrl:
+            # Ctrl+C para copiar o valor selecionado (alternativa ao Enter)
+            if self.copied_text:
+                try:
+                    import pyperclip
+                    pyperclip.copy(self.copied_text)
+                    self.notify(f"Copiado: {self.copied_text}", timeout=2)
+                except ImportError:
+                    self.notify("Instale a biblioteca pyperclip para habilitar a cópia", timeout=2)
 
 
 def login_olt_ssh(host: str = None) -> Optional[pexpect.spawn]:
