@@ -236,18 +236,35 @@ def provision_onu_by_model(conexao, model: str, slot: str, pon: str, position: s
             auth_group01_ssh(conexao, slot, pon, position, vlan)
             logger.info("Provisionamento concluído com sucesso (Grupo 01)")
             return True
-        elif model in MODEL_GROUP02:
+
+        if model in MODEL_GROUP02:
             auth_group02_ssh(conexao, slot, pon, position, vlan)
             logger.info("Provisionamento concluído com sucesso (Grupo 02)")
             return True
-        elif model in MODEL_GROUP03:
-            auth_group03_ssh(conexao, slot, pon, position, vlan)
-            logger.info("Provisionamento concluído com sucesso (Grupo 03)")
-            return True
-        else:
-            logger.warning(f"Modelo incompatível: {model}")
-            return False
-            
+
+        if model in MODEL_GROUP03:
+            if model == "AN5506-01-A":
+                print("\nEsta Fiberhome AN5506-01-A é do modelo:\n1 - Pequeno\n2 - Grande")
+                while True:
+                    escolha_modelo = input("Escolha 1 ou 2: ").strip()
+                    if escolha_modelo == '1':
+                        auth_group03_ssh(conexao, slot, pon, position, vlan, model="pequeno")
+                        logger.info("Provisionamento concluído com sucesso (Grupo 03 - Pequeno)")
+                        return True
+                    elif escolha_modelo == '2':
+                        auth_especific_model_AN5506_ssh(conexao, slot, pon, position, vlan, model="grande")
+                        logger.info("Provisionamento concluído com sucesso (Grupo 03 - Grande)")
+                        return True
+                    else:
+                        print("Escolha inválida. Tente novamente.")
+            else:
+                auth_group03_ssh(conexao, slot, pon, position, vlan)
+                logger.info("Provisionamento concluído com sucesso (Grupo 03)")
+                return True
+
+        logger.warning(f"Modelo incompatível: {model}")
+        return False
+
     except Exception as e:
         logger.error(f"Erro no provisionamento: {str(e)}")
         raise
@@ -465,8 +482,8 @@ def grant_remote_access_wan_complete(ip_olt: str) -> None:
                 logger.warning("Falha ao ativar acesso remoto, tentando corrigir.")
                 
             print("Habilitado acesso remoto na porta 8080 com sucesso. "
-                  "\nUtilize o protocolo http:// seguido do IP adquirido na conexão WAN e :8080"
-                  "\nUtilize o usuário de acesso padrão AdminGPON e a nova senha configurada")
+                    "\nUtilize o protocolo http:// seguido do IP adquirido na conexão WAN e :8080"
+                    "\nUtilize o usuário de acesso padrão AdminGPON e a nova senha configurada")
             logger.info("Sucesso ao alterar senha de acesso remoto.")
             
     except Exception as e:
@@ -574,7 +591,7 @@ def provision_nokia(ip_olt: str) -> None:
         print(f"❌ Erro inesperado: {str(e)}")
 
 def _handle_nokia_ont_provisioning(ip_olt: str, conexao_ssh, serial: str, vlan: str, 
-                                  name: str, slot: str, pon: str, position: str) -> None:
+                                name: str, slot: str, pon: str, position: str) -> None:
     """Handle Nokia ONT provisioning"""
     logger.info("ONT Nokia ALCL detectada")
     print("\nONT Nokia detectada - Escolha o modo de provisionamento:")
@@ -742,11 +759,11 @@ def mass_migration_nokia(ip_olt: str) -> None:
         # Save results to CSV files
         if migrated_onus:
             save_csv_data('csv/migrated.csv', migrated_onus, 
-                         ['serial', 'slot', 'pon', 'position', 'name', 'vlan', 'timestamp'])
+                        ['serial', 'slot', 'pon', 'position', 'name', 'vlan', 'timestamp'])
 
         if not_migrated_onus:
             save_csv_data('csv/not_migrated.csv', not_migrated_onus, 
-                         ['serial', 'error', 'timestamp'])
+                        ['serial', 'error', 'timestamp'])
 
         print(f"\nMigração concluída!")
         print(f"ONUs migradas com sucesso: {len(migrated_onus)}")

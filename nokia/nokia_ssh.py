@@ -69,8 +69,8 @@ def login_olt_ssh(host: str = None) -> Optional[pexpect.spawn]:
 
         logger.info(f"Conectando à OLT | Usuário: {SSH_USER} | OLT: {host}")
         child = pexpect.spawn(f"ssh {SSH_USER}@{host} -p {SSH_PORT}", 
-                              encoding='utf-8', 
-                              timeout=EXTENDED_TIMEOUT)
+                                encoding='utf-8', 
+                                timeout=EXTENDED_TIMEOUT)
 
         index = child.expect([
             "password:", 
@@ -268,7 +268,7 @@ def checkfreeposition(child: pexpect.spawn, slot: str, pon: str) -> int:
         raise
 
 def add_to_pon(child: pexpect.spawn, slot: str, pon: str, position: str, 
-               serial: str, name: str, desc2: str) -> bool:
+                serial: str, name: str, desc2: str) -> bool:
     """Add ONU to PON for initial provisioning"""
     logger.info("Adicionando a ONT na PON para consultar modelo")
     
@@ -440,6 +440,48 @@ def auth_group03_ssh(child: pexpect.spawn, slot: str, pon: str, position: str, v
             return False
 
     logger.info("Configuração do grupo 03 concluída com sucesso.")
+    return True
+
+def auth_especific_model_AN5506_ssh(child: pexpect.spawn, slot: str, pon: str, position: str, vlan: str) -> bool:
+    """SSH authentication for Fiberhome AN5506-01-A Grande ONUs"""
+    logger.info("Iniciando autorização de Fiberhome AN5506-01-A Grande via SSH")
+
+    try:
+        time.sleep(STABILIZATION_WAIT_TIME)
+    except Exception as e:
+        logger.warning(f"Problema ao aguardar: {e}")
+
+    try:
+        print("Provisionando a ONU no modo correto para o Hardware...")
+        comandos = [
+            (f"configure qos interface ont:1/1/{slot}/{pon}/{position} ds-queue-sharing", "#", "Configurar qos da ONT"),
+            (f"configure equipment ont slot 1/1/{slot}/{pon}/{position}/1 plndnumdataports 1 plndnumvoiceports 0 planned-card-type ethernet admin-state up", "$", "Configurar slot da ONT"),
+            (f"configure qos interface 1/1/{slot}/{pon}/{position}/1/1 upstream-queue 0 bandwidth-profile name:HSI_1G_UP", "#", "Configurar QoS upstream"),
+            (f"configure qos interface ont:1/1/{slot}/{pon}/{position} queue 0 shaper-profile name:HSI_1G_DOWN", "#", "Configurar QoS downstream"),
+            (f"configure interface port uni:1/1/{slot}/{pon}/{position}/1/1 admin-up", "#", "Habilitar porta UNI"),
+            (f"configure bridge port 1/1/{slot}/{pon}/{position}/1/1 max-unicast-mac {EXTENDED_MAC_ADDRESSES}", "$", "Configurar limite de MACs"),
+            (f"configure bridge port 1/1/{slot}/{pon}/{position}/1/1 vlan-id {vlan} tag untagged", "$", "Atribuir VLAN"),
+            (f"configure bridge port 1/1/{slot}/{pon}/{position}/1/1 pvid {vlan}", "#", "Definir PVID na porta bridge"),
+            ("exit all", "#", "Sair do modo de configuração"),
+        ]
+
+        for cmd, prompt, descricao in comandos:
+            try:
+                child.sendline(cmd)
+                logger.info(f"Enviando comando: {descricao} -> {cmd}")
+                child.expect(prompt, timeout=DEFAULT_TIMEOUT)
+                logger.info(f"Comando concluído com sucesso: {descricao}")
+                time.sleep(1)
+            except Exception as e:
+                logger.error(f"Erro ao executar comando '{descricao}': {e}")
+                print(f"Houve um problema durante: {descricao}")
+                return False
+
+    except Exception as e:
+        logger.error(f"Erro no bloco de reprovisionamento: {e}")
+        return False
+
+    logger.info("Configuração da Fiberhome Grande concluída com sucesso.")
     return True
 
 def unauthorized(child: pexpect.spawn, serial_ssh: str, slot: str, pon: str, position: str) -> bool:
