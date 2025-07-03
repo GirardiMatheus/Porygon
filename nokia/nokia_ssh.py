@@ -405,7 +405,7 @@ def auth_group02_ssh(child: pexpect.spawn, slot: str, pon: str, position: str, v
     logger.info("Configuração do grupo 02 concluída com sucesso.")
     return True
 
-def auth_group03_ssh(child: pexpect.spawn, slot: str, pon: str, position: str, vlan: str) -> bool:
+def auth_group03_ssh(child: pexpect.spawn, slot: str, pon: str, position: str, vlan: str, model: Optional[str] = None) -> bool:
     """SSH authentication for Group 03 ONUs"""
     logger.info("Iniciando autorização do grupo 03 via SSH")
     
@@ -442,7 +442,7 @@ def auth_group03_ssh(child: pexpect.spawn, slot: str, pon: str, position: str, v
     logger.info("Configuração do grupo 03 concluída com sucesso.")
     return True
 
-def auth_especific_model_AN5506_ssh(child: pexpect.spawn, slot: str, pon: str, position: str, vlan: str) -> bool:
+def auth_especific_model_AN5506_ssh(child: pexpect.spawn, slot: str, pon: str, position: str, vlan: str, model: Optional[str] = None) -> bool:
     """SSH authentication for Fiberhome AN5506-01-A Grande ONUs"""
     logger.info("Iniciando autorização de Fiberhome AN5506-01-A Grande via SSH")
 

@@ -244,15 +244,17 @@ def provision_onu_by_model(conexao, model: str, slot: str, pon: str, position: s
 
         if model in MODEL_GROUP03:
             if model == "AN5506-01-A":
-                print("\nEsta Fiberhome AN5506-01-A é do modelo:\n1 - Pequeno\n2 - Grande")
+                print("\nEsta Fiberhome AN5506-01-A é do modelo:")
+                print("1 - Pequeno")
+                print("2 - Grande")
                 while True:
                     escolha_modelo = input("Escolha 1 ou 2: ").strip()
                     if escolha_modelo == '1':
-                        auth_group03_ssh(conexao, slot, pon, position, vlan, model="pequeno")
+                        auth_group03_ssh(conexao, slot, pon, position, vlan, model="small")
                         logger.info("Provisionamento concluído com sucesso (Grupo 03 - Pequeno)")
                         return True
                     elif escolha_modelo == '2':
-                        auth_especific_model_AN5506_ssh(conexao, slot, pon, position, vlan, model="grande")
+                        auth_especific_model_AN5506_ssh(conexao, slot, pon, position, vlan, model="big")
                         logger.info("Provisionamento concluído com sucesso (Grupo 03 - Grande)")
                         return True
                     else:
