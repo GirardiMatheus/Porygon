@@ -5,6 +5,7 @@ Provides menu-driven interface for Nokia and Parks OLT operations.
 
 import os
 import time
+import json
 from typing import Optional, Dict, Tuple, Callable, Any
 from dataclasses import dataclass
 
@@ -28,6 +29,10 @@ logger.info("Sistema iniciado")
 
 # Carrega variáveis de ambiente
 load_dotenv()
+
+# Carrega configuração do JSON
+with open(os.path.join(os.path.dirname(__file__), "config.json"), encoding="utf-8") as f:
+    CONFIG = json.load(f)
 
 @dataclass
 class OLTConfiguration:
@@ -76,39 +81,70 @@ def show_menu(title: str, options: Dict[str, Any]) -> str:
     return choice
 
 def get_olt_configurations(vendor: str) -> Dict[int, OLTConfiguration]:
-    """Get OLT configurations for a specific vendor"""
-    configurations = {
-        VENDOR_PARKS: {
-            1: OLTConfiguration("LAB_Parks", os.getenv('LAB_IP_PARKS'), VENDOR_PARKS),
-            2: OLTConfiguration("BACAXA 01", os.getenv('BACAXA_IP_01'), VENDOR_PARKS),
-            3: OLTConfiguration("BACAXA 02", os.getenv('BACAXA_IP_02'), VENDOR_PARKS),
-            4: OLTConfiguration("SAMBE", os.getenv('SAMBE_IP_01'), VENDOR_PARKS)
-        },
-        VENDOR_NOKIA: {
-            1: OLTConfiguration("LAB_Nokia", os.getenv('LAB_IP'), VENDOR_NOKIA),
-            2: OLTConfiguration("NOKIA_INOA", os.getenv('INOA_IP'), VENDOR_NOKIA),
-            3: OLTConfiguration("NOKIA_ITAIPUACU", os.getenv('ITAIPUACU_IP'), VENDOR_NOKIA),
-            4: OLTConfiguration("NOKIA_NITEROI", os.getenv('NITEROI_IP'), VENDOR_NOKIA),
-            5: OLTConfiguration("NOKIA_BACAXA", os.getenv('BACAXA_IP'), VENDOR_NOKIA),
-            6: OLTConfiguration("NOKIA_SAMPAIO", os.getenv('SAMPAIO_IP'), VENDOR_NOKIA),
-            7: OLTConfiguration("NOKIA_SAQUAREMA", os.getenv('SAQUAREMA_IP'), VENDOR_NOKIA)
-        }
-    }
-    return configurations.get(vendor, {})
+    """Get OLT configurations for a specific vendor from config.json"""
+    vendor_data = CONFIG["vendors"].get(vendor, {})
+    olts = vendor_data.get("olts", [])
+    result = {}
+    for idx, olt in enumerate(olts, start=1):
+        ip = os.getenv(olt["env_ip"])
+        result[idx] = OLTConfiguration(olt["name"], ip, vendor)
+    return result
+
+def save_config():
+    """Salva o CONFIG atualizado no arquivo config.json"""
+    with open(os.path.join(os.path.dirname(__file__), "config.json"), "w", encoding="utf-8") as f:
+        json.dump(CONFIG, f, indent=2, ensure_ascii=False)
+
+def add_olt_to_config(vendor: str):
+    """Adiciona uma nova OLT ao config.json"""
+    name = input("Nome da nova OLT: ").strip()
+    env_ip = input("Nome da variável de ambiente do IP (ex: NOVA_OLT_IP): ").strip()
+    if not name or not env_ip:
+        print("❌ Nome e variável de ambiente são obrigatórios.")
+        time.sleep(SLEEP_SHORT)
+        return
+    # Verifica duplicidade
+    olts = CONFIG["vendors"][vendor]["olts"]
+    if any(olt["name"] == name or olt["env_ip"] == env_ip for olt in olts):
+        print("❌ Já existe uma OLT com esse nome ou variável de ambiente.")
+        time.sleep(SLEEP_SHORT)
+        return
+    olts.append({"name": name, "env_ip": env_ip})
+    save_config()
+    print(f"✅ OLT '{name}' cadastrada. Configure a variável de ambiente '{env_ip}' para o IP.")
+    time.sleep(SLEEP_SHORT)
+
+def remove_olt_from_config(vendor: str):
+    """Remove uma OLT do config.json"""
+    olts = CONFIG["vendors"][vendor]["olts"]
+    if not olts:
+        print("Nenhuma OLT cadastrada para remover.")
+        time.sleep(SLEEP_SHORT)
+        return
+    print("\nOLTs cadastradas:")
+    for idx, olt in enumerate(olts, start=1):
+        print(f"[{idx}] {olt['name']} ({olt['env_ip']})")
+    try:
+        idx = int(input("Digite o número da OLT para remover: ").strip())
+        if 1 <= idx <= len(olts):
+            removed = olts.pop(idx - 1)
+            save_config()
+            print(f"✅ OLT '{removed['name']}' removida.")
+        else:
+            print("❌ Opção inválida.")
+    except ValueError:
+        print("❌ Entrada inválida.")
+    time.sleep(SLEEP_SHORT)
 
 def get_olt_connection(manager: OLTManager, vendor: str) -> bool:
     """Obtém a conexão com a OLT selecionada"""
-    configurations = get_olt_configurations(vendor)
-    
-    if not configurations:
-        logger.error(f"Nenhuma configuração encontrada para o vendor: {vendor}")
-        print("❌ Vendor não suportado!")
-        return False
-
     while True:
+        configurations = get_olt_configurations(vendor)
         menu_options = {}
         for key, config in configurations.items():
             menu_options[str(key)] = (config.name, config.ip)
+        menu_options["A"] = "Cadastrar nova OLT"
+        menu_options["R"] = "Remover OLT"
         menu_options[BACK_OPTION] = "Voltar"
         
         choice = show_menu(f"Escolha a OLT {vendor.upper()} desejada:", menu_options)
@@ -116,6 +152,12 @@ def get_olt_connection(manager: OLTManager, vendor: str) -> bool:
         if choice.upper() == BACK_OPTION:
             logger.info("Retornando ao menu anterior")
             return False
+        if choice.upper() == "A":
+            add_olt_to_config(vendor)
+            continue
+        if choice.upper() == "R":
+            remove_olt_from_config(vendor)
+            continue
 
         try:
             choice_int = int(choice)
@@ -140,33 +182,38 @@ def get_olt_connection(manager: OLTManager, vendor: str) -> bool:
         time.sleep(SLEEP_SHORT)
 
 def get_vendor_menu_options() -> Dict[str, Dict[str, Tuple[str, Optional[Callable]]]]:
-    """Get menu options for each vendor"""
-    return {
-        'parks': {
-            '1': ("Provisionar ONU", provision),
-            '2': ("Desautorizar ONU", unauthorized_complete),
-            '3': ("Listar ONU/ONT pedindo autorização", onu_list),
-            '4': ("Consultar Informações da ONU/ONT", consult_information_complete),
-            '5': ("Reiniciar ONU/ONT", reboot_complete),
-            '6': ("Lista de modelos compatíveis", list_of_compatible_models),
-            '7': ("Criar csv para migração ou divisão de pon", list_onu_csv_parks),
-            '0': ("Voltar ao menu anterior", None)
-        },
-        'nokia': {
-            '1': ("Provisionar ONU", provision_nokia),
-            '2': ("Desautorizar ONU", unauthorized_complete_nokia),
-            '3': ("Listar ONU/ONT pedindo autorização", onu_list_nokia),
-            '4': ("Consultar Informações da ONU/ONT", consult_information_complete_nokia),
-            '5': ("Reiniciar ONU/ONT", reboot_complete_nokia),
-            '6': ("Lista de modelos compatíveis", list_of_compatible_models_nokia),
-            '7': ("Habilitar acesso remoto pela WAN", grant_remote_access_wan_complete),
-            '8': ("Configurar WIFI", configure_wifi),
-            '9': ("Listar ONU na PON", list_pon_nokia),
-            '10': ("Migração em massa", mass_migration_nokia),
-            '11': ("Criar csv para migração ou divisão de PON", list_onu_csv_nokia),
-            '0': ("Voltar ao menu anterior", None)
-        }
+    """Get menu options for each vendor from config.json"""
+    # Mapeamento global de nomes de funções para funções reais
+    function_map = {
+        # Parks
+        "provision": provision,
+        "unauthorized_complete": unauthorized_complete,
+        "onu_list": onu_list,
+        "consult_information_complete": consult_information_complete,
+        "reboot_complete": reboot_complete,
+        "list_of_compatible_models": list_of_compatible_models,
+        "list_onu_csv_parks": list_onu_csv_parks,
+        # Nokia
+        "provision_nokia": provision_nokia,
+        "unauthorized_complete_nokia": unauthorized_complete_nokia,
+        "onu_list_nokia": onu_list_nokia,
+        "consult_information_complete_nokia": consult_information_complete_nokia,
+        "reboot_complete_nokia": reboot_complete_nokia,
+        "list_of_compatible_models_nokia": list_of_compatible_models_nokia,
+        "grant_remote_access_wan_complete": grant_remote_access_wan_complete,
+        "configure_wifi": configure_wifi,
+        "list_pon_nokia": list_pon_nokia,
+        "mass_migration_nokia": mass_migration_nokia,
+        "list_onu_csv_nokia": list_onu_csv_nokia
     }
+    menu = {}
+    for vendor, data in CONFIG["vendors"].items():
+        commands = {}
+        for cmd in data.get("commands", []):
+            func = function_map.get(cmd["function"]) if cmd["function"] else None
+            commands[cmd["key"]] = (cmd["desc"], func)
+        menu[vendor] = commands
+    return menu
 
 def execute_vendor_function(manager: OLTManager, function: Callable, choice: str) -> None:
     """Execute vendor-specific function with proper error handling"""
