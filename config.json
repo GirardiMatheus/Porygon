@@ -1,0 +1,160 @@
+{
+  "vendors": {
+    "nokia": {
+      "olts": [
+        {
+          "name": "LAB_Nokia",
+          "env_ip": "LAB_IP"
+        },
+        {
+          "name": "NOKIA_INOA",
+          "env_ip": "INOA_IP"
+        },
+        {
+          "name": "NOKIA_ITAIPUACU",
+          "env_ip": "ITAIPUACU_IP"
+        },
+        {
+          "name": "NOKIA_NITEROI",
+          "env_ip": "NITEROI_IP"
+        },
+        {
+          "name": "NOKIA_BACAXA",
+          "env_ip": "BACAXA_IP"
+        },
+        {
+          "name": "NOKIA_SAMPAIO",
+          "env_ip": "SAMPAIO_IP"
+        },
+        {
+          "name": "NOKIA_SAQUAREMA",
+          "env_ip": "SAQUAREMA_IP"
+        }
+      ],
+      "commands": [
+        {
+          "key": "1",
+          "desc": "Provisionar ONU",
+          "function": "provision_nokia"
+        },
+        {
+          "key": "2",
+          "desc": "Desautorizar ONU",
+          "function": "unauthorized_complete_nokia"
+        },
+        {
+          "key": "3",
+          "desc": "Listar ONU/ONT pedindo autorização",
+          "function": "onu_list_nokia"
+        },
+        {
+          "key": "4",
+          "desc": "Consultar Informações da ONU/ONT",
+          "function": "consult_information_complete_nokia"
+        },
+        {
+          "key": "5",
+          "desc": "Reiniciar ONU/ONT",
+          "function": "reboot_complete_nokia"
+        },
+        {
+          "key": "6",
+          "desc": "Lista de modelos compatíveis",
+          "function": "list_of_compatible_models_nokia"
+        },
+        {
+          "key": "7",
+          "desc": "Habilitar acesso remoto pela WAN",
+          "function": "grant_remote_access_wan_complete"
+        },
+        {
+          "key": "8",
+          "desc": "Configurar WIFI",
+          "function": "configure_wifi"
+        },
+        {
+          "key": "9",
+          "desc": "Listar ONU na PON",
+          "function": "list_pon_nokia"
+        },
+        {
+          "key": "10",
+          "desc": "Migração em massa",
+          "function": "mass_migration_nokia"
+        },
+        {
+          "key": "11",
+          "desc": "Criar csv para migração ou divisão de PON",
+          "function": "list_onu_csv_nokia"
+        },
+        {
+          "key": "0",
+          "desc": "Voltar ao menu anterior",
+          "function": null
+        }
+      ]
+    },
+    "parks": {
+      "olts": [
+        {
+          "name": "LAB_Parks",
+          "env_ip": "LAB_IP_PARKS"
+        },
+        {
+          "name": "BACAXA 01",
+          "env_ip": "BACAXA_IP_01"
+        },
+        {
+          "name": "BACAXA 02",
+          "env_ip": "BACAXA_IP_02"
+        },
+        {
+          "name": "SAMBE",
+          "env_ip": "SAMBE_IP_01"
+        }
+      ],
+      "commands": [
+        {
+          "key": "1",
+          "desc": "Provisionar ONU",
+          "function": "provision"
+        },
+        {
+          "key": "2",
+          "desc": "Desautorizar ONU",
+          "function": "unauthorized_complete"
+        },
+        {
+          "key": "3",
+          "desc": "Listar ONU/ONT pedindo autorização",
+          "function": "onu_list"
+        },
+        {
+          "key": "4",
+          "desc": "Consultar Informações da ONU/ONT",
+          "function": "consult_information_complete"
+        },
+        {
+          "key": "5",
+          "desc": "Reiniciar ONU/ONT",
+          "function": "reboot_complete"
+        },
+        {
+          "key": "6",
+          "desc": "Lista de modelos compatíveis",
+          "function": "list_of_compatible_models"
+        },
+        {
+          "key": "7",
+          "desc": "Criar csv para migração ou divisão de pon",
+          "function": "list_onu_csv_parks"
+        },
+        {
+          "key": "0",
+          "desc": "Voltar ao menu anterior",
+          "function": null
+        }
+      ]
+    }
+  }
+}
