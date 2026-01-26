@@ -52,8 +52,8 @@ def login_olt_tl1(host: str) -> Optional[pexpect.spawn]:
         
         # Conexão TL1
         child = pexpect.spawn(f"ssh {tl1_user}@{host} -p {tl1_port}", 
-                              encoding='utf-8', 
-                              timeout=30)
+                                encoding='utf-8', 
+                                timeout=30)
 
         # Verifica resposta do SSH
         index = child.expect([
@@ -121,11 +121,11 @@ def login_olt_tl1(host: str) -> Optional[pexpect.spawn]:
         return None
 
 def auth_bridge_tl1(child: pexpect.spawn, serial: str, vlan: str, name: str, 
-                   slot: str, pon: str, position: str, desc2: str) -> bool:
+                    slot: str, pon: str, position: str, desc2: str) -> bool:
     """Autoriza e configura uma ONT em modo bridge via TL1"""
     try:
         logger.info(f"Provisionando ONT em modo bridge: Serial={serial}, VLAN={vlan}, "
-                   f"Nome={name}, Slot={slot}, PON={pon}, Posição={position}, Desc2={desc2}")
+                    f"Nome={name}, Slot={slot}, PON={pon}, Posição={position}, Desc2={desc2}")
 
         # Autorizar ONT
         cmd = (f'ENT-ONT::ONT-1-1-{slot}-{pon}-{position}::::DESC1="{name}",DESC2="{desc2}",'
@@ -189,16 +189,16 @@ def auth_bridge_tl1(child: pexpect.spawn, serial: str, vlan: str, name: str,
     return True
 
 def auth_router_tl1(child: pexpect.spawn, vlan: str, name: str, desc2: str, 
-                   user_pppoe: str, password_pppoe: str, slot: str, pon: str, 
-                   position: str, serial_tl1: str) -> bool:
+                    user_pppoe: str, password_pppoe: str, slot: str, pon: str, 
+                    position: str, serial_tl1: str) -> bool:
     """Provisiona ONT Router via TL1"""
     try:
         logger.info(f"Iniciando provisionamento da ONT: Slot={slot}, PON={pon}, "
-                   f"Posição={position}, Serial={serial_tl1}")
+                    f"Posição={position}, Serial={serial_tl1}")
 
         cmd = (f'ENT-ONT::ONT-1-1-{slot}-{pon}-{position}::::DESC1="{name}",DESC2="{desc2}",'
-               f'SERNUM={serial_tl1},PLNDVAR=VEIP_SIP,SWVERPLND=AUTO,DLSW=AUTO,'
-               f'PLNDCFGFILE1=AUTO,DLCFGFILE1=AUTO,OPTICSHIST=ENABLE,VOIPALLOWED=VEIP;')
+                f'SERNUM={serial_tl1},PLNDVAR=VEIP_SIP,SWVERPLND=AUTO,DLSW=AUTO,'
+                f'PLNDCFGFILE1=AUTO,DLCFGFILE1=AUTO,OPTICSHIST=ENABLE,VOIPALLOWED=VEIP;')
 
         logger.info(f"Enviando comando de criação da ONT: {cmd}")
         child.sendline(cmd)

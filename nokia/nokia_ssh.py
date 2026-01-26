@@ -22,7 +22,7 @@ from rich.text import Text
 
 # Constants
 DEFAULT_TIMEOUT = 10
-EXTENDED_TIMEOUT = 30
+EXTENDED_TIMEOUT = 40
 STABILIZATION_WAIT_TIME = 3
 DISCOVERY_WAIT_TIME = 5
 PON_CAPACITY = 128
@@ -163,7 +163,7 @@ def check_onu_position(child: pexpect.spawn, serial: str) -> Optional[Tuple[str,
     try:
         logger.info(f"Verificando posição da ONU com serial: {serial}")
         child.sendline(f"show equipment ont status pon | match match exact:{serial}")
-        child.expect("#", timeout=DEFAULT_TIMEOUT)
+        child.expect("#", timeout=EXTENDED_TIMEOUT)
         output = child.before
 
         match = re.search(r"(\d+)\/(\d+)\/(\d+)\/(\d+)\/(\d+)", output)

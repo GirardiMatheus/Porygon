@@ -29,6 +29,14 @@
         {
           "name": "NOKIA_SAQUAREMA",
           "env_ip": "SAQUAREMA_IP"
+        },
+        {
+          "name": "LAB_Fx4",
+          "env_ip": "LAB_fx4"
+        },
+        {
+          "name": "LAB_fx8",
+          "env_ip": "LAB_fx8"
         }
       ],
       "commands": [
